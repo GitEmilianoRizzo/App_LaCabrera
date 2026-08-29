@@ -38,8 +38,8 @@ services:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      - ConnectionStrings__LaCabreraDb=${DB_CONNECTION_STRING:-Server=sqlserver;Database=LaCabreraDB;User Id=sa;Password=${SA_PASSWORD:-LaCabrera2026!Prod};TrustServerCertificate=True}
-      - Jwt__Secret=${JWT_SECRET:-LaCabreraJwtSecretKey2026ProductionSecure!}
+      - ConnectionStrings__LaCabreraDb=${DB_CONNECTION_STRING:?DB_CONNECTION_STRING is required}
+      - Jwt__Secret=${JWT_SECRET:?JWT_SECRET is required}
       - Jwt__Issuer=${JWT_ISSUER:-LaCabrera.Api}
       - Jwt__Audience=${JWT_AUDIENCE:-LaCabrera.Frontend}
       - Jwt__ExpirationMinutes=${JWT_EXPIRATION_MINUTES:-60}
@@ -70,7 +70,7 @@ services:
       - "1433:1433"
     environment:
       - ACCEPT_EULA=Y
-      - MSSQL_SA_PASSWORD=${SA_PASSWORD:-LaCabrera2026!Prod}
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD:?SA_PASSWORD is required}
       - MSSQL_PID=Developer
     volumes:
       - sqlserver-data:/var/opt/mssql

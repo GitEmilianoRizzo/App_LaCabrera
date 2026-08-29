@@ -7,6 +7,13 @@
 .env
 .env.local
 .env.*.local
+.env.production
+
+# Production config with secrets (use environment variables in production)
+appsettings.Production.json
+appsettings.*.local.json
+**/secrets.json
+**/credentials.json
 
 # ----------------------------------------
 # Backend (.NET)
