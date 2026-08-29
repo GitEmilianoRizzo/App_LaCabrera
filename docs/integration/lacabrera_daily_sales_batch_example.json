@@ -1,0 +1,236 @@
+{
+  "schema_version": "1.0",
+  "batch_header": {
+    "batch_id": "LC-PARAGUAY-ASU01-20260714-001",
+    "business_date": "2026-07-14",
+    "generated_at": "2026-07-15T03:20:00-04:00",
+    "source_system": {
+      "system_name": "POS Restaurant Pro",
+      "system_version": "8.4.2",
+      "exported_by": "admin_asu01"
+    },
+    "franchise": {
+      "franchise_code": "PARAGUAY_ASU01",
+      "franchise_name": "La Cabrera Asunción Centro",
+      "economic_group_code": "GRP_PARAGUAY",
+      "economic_group_name": "Grupo Paraguay",
+      "country": "Paraguay",
+      "city": "Asunción",
+      "timezone": "America/Asuncion",
+      "currency": "PYG"
+    },
+    "extraction_window": {
+      "from": "2026-07-14T06:00:00-04:00",
+      "to": "2026-07-15T05:59:59-04:00"
+    },
+    "upload_type": "FULL_DAY",
+    "control_totals": {
+      "ticket_count": 2,
+      "item_line_count": 5,
+      "gross_sales_amount": 625000.0,
+      "discount_amount": 45000.0,
+      "net_sales_amount": 580000.0,
+      "tax_amount": 58000.0,
+      "service_charge_amount": 0.0,
+      "tip_amount": 25000.0,
+      "covers_total": 5,
+      "cancelled_ticket_count": 0
+    }
+  },
+  "tickets": [
+    {
+      "ticket_id": "POS-ASU01-20260714-000123",
+      "ticket_number": "000123",
+      "external_order_id": "ORD-98231",
+      "fiscal_document": {
+        "document_type": "INVOICE",
+        "document_number": "001-001-00004567"
+      },
+      "status": "CLOSED",
+      "opened_at": "2026-07-14T20:15:10-04:00",
+      "closed_at": "2026-07-14T21:42:35-04:00",
+      "business_date": "2026-07-14",
+      "meal_period": "DINNER",
+      "table": {
+        "table_number": "12",
+        "table_area": "SALON_PRINCIPAL"
+      },
+      "waiter": {
+        "waiter_id": "MZ-004",
+        "waiter_name": "Carlos Benitez"
+      },
+      "covers": 3,
+      "currency": "PYG",
+      "amounts": {
+        "gross_amount": 395000.0,
+        "discount_amount": 45000.0,
+        "net_amount": 350000.0,
+        "tax_amount": 35000.0,
+        "service_charge_amount": 0.0,
+        "tip_amount": 15000.0,
+        "total_paid_amount": 365000.0
+      },
+      "discounts": [
+        {
+          "discount_code": "PROMO_BANCO_10",
+          "discount_name": "Promoción Banco 10%",
+          "discount_type": "PERCENTAGE",
+          "discount_value": 10.0,
+          "discount_amount": 45000.0
+        }
+      ],
+      "payment_methods": [
+        {
+          "payment_method": "CREDIT_CARD",
+          "payment_brand": "VISA",
+          "amount": 365000.0
+        }
+      ],
+      "items": [
+        {
+          "line_id": "1",
+          "product_code": "ENT-001",
+          "product_name": "Empanada Criolla",
+          "product_category": "STARTER",
+          "product_family": "ENTRADAS",
+          "product_subfamily": "EMPANADAS",
+          "quantity": 3.0,
+          "unit_price": 25000.0,
+          "gross_amount": 75000.0,
+          "discount_amount": 7500.0,
+          "net_amount": 67500.0,
+          "tax_amount": 6750.0,
+          "is_discounted": true,
+          "is_voided": false,
+          "void_reason": null,
+          "ordered_at": "2026-07-14T20:18:00-04:00",
+          "served_at": "2026-07-14T20:29:00-04:00",
+          "notes": null
+        },
+        {
+          "line_id": "2",
+          "product_code": "CAR-101",
+          "product_name": "Bife de Chorizo",
+          "product_category": "MAIN_COURSE",
+          "product_family": "CARNES",
+          "product_subfamily": "BIFE",
+          "quantity": 2.0,
+          "unit_price": 125000.0,
+          "gross_amount": 250000.0,
+          "discount_amount": 25000.0,
+          "net_amount": 225000.0,
+          "tax_amount": 22500.0,
+          "is_discounted": true,
+          "is_voided": false,
+          "void_reason": null,
+          "ordered_at": "2026-07-14T20:25:00-04:00",
+          "served_at": "2026-07-14T20:52:00-04:00",
+          "notes": "Punto jugoso"
+        },
+        {
+          "line_id": "3",
+          "product_code": "POS-010",
+          "product_name": "Flan Casero",
+          "product_category": "DESSERT",
+          "product_family": "POSTRES",
+          "product_subfamily": "FLANES",
+          "quantity": 2.0,
+          "unit_price": 35000.0,
+          "gross_amount": 70000.0,
+          "discount_amount": 12500.0,
+          "net_amount": 57500.0,
+          "tax_amount": 5750.0,
+          "is_discounted": true,
+          "is_voided": false,
+          "void_reason": null,
+          "ordered_at": "2026-07-14T21:15:00-04:00",
+          "served_at": "2026-07-14T21:23:00-04:00",
+          "notes": null
+        }
+      ]
+    },
+    {
+      "ticket_id": "POS-ASU01-20260714-000124",
+      "ticket_number": "000124",
+      "external_order_id": "ORD-98232",
+      "fiscal_document": {
+        "document_type": "INVOICE",
+        "document_number": "001-001-00004568"
+      },
+      "status": "CLOSED",
+      "opened_at": "2026-07-14T22:05:42-04:00",
+      "closed_at": "2026-07-14T23:10:08-04:00",
+      "business_date": "2026-07-14",
+      "meal_period": "DINNER",
+      "table": {
+        "table_number": "8",
+        "table_area": "TERRAZA"
+      },
+      "waiter": {
+        "waiter_id": "MZ-002",
+        "waiter_name": "Ana Duarte"
+      },
+      "covers": 2,
+      "currency": "PYG",
+      "amounts": {
+        "gross_amount": 230000.0,
+        "discount_amount": 0.0,
+        "net_amount": 230000.0,
+        "tax_amount": 23000.0,
+        "service_charge_amount": 0.0,
+        "tip_amount": 10000.0,
+        "total_paid_amount": 240000.0
+      },
+      "discounts": [],
+      "payment_methods": [
+        {
+          "payment_method": "CASH",
+          "payment_brand": null,
+          "amount": 240000.0
+        }
+      ],
+      "items": [
+        {
+          "line_id": "1",
+          "product_code": "CAR-220",
+          "product_name": "Ojo de Bife",
+          "product_category": "MAIN_COURSE",
+          "product_family": "CARNES",
+          "product_subfamily": "BIFE",
+          "quantity": 1.0,
+          "unit_price": 160000.0,
+          "gross_amount": 160000.0,
+          "discount_amount": 0.0,
+          "net_amount": 160000.0,
+          "tax_amount": 16000.0,
+          "is_discounted": false,
+          "is_voided": false,
+          "void_reason": null,
+          "ordered_at": "2026-07-14T22:12:00-04:00",
+          "served_at": "2026-07-14T22:41:00-04:00",
+          "notes": "A punto"
+        },
+        {
+          "line_id": "2",
+          "product_code": "CAF-001",
+          "product_name": "Café Espresso",
+          "product_category": "COFFEE",
+          "product_family": "CAFETERIA",
+          "product_subfamily": "CAFE",
+          "quantity": 2.0,
+          "unit_price": 35000.0,
+          "gross_amount": 70000.0,
+          "discount_amount": 0.0,
+          "net_amount": 70000.0,
+          "tax_amount": 7000.0,
+          "is_discounted": false,
+          "is_voided": false,
+          "void_reason": null,
+          "ordered_at": "2026-07-14T22:58:00-04:00",
+          "served_at": "2026-07-14T23:03:00-04:00",
+          "notes": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,261 @@
+{
+  "info": {
+    "name": "LA CABRERA - API Integracion",
+    "description": "Coleccion de requests para la API de integracion de franquicias de LA CABRERA",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "lacabrera-api-v1"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "api_key_paraguay",
+      "value": "LC-DEMO-PARAGUAY-ASU01-2026",
+      "type": "string"
+    },
+    {
+      "key": "api_key_miami",
+      "value": "LC-DEMO-MIAMI-01-2026",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Ingesta",
+      "description": "Endpoints de ingesta de datos",
+      "item": [
+        {
+          "name": "POST Daily Sales Batch - Paraguay",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key_paraguay}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.0\",\n  \"batch_header\": {\n    \"batch_id\": \"LC-PARAGUAY-ASU01-20260715-001\",\n    \"business_date\": \"2026-07-15\",\n    \"generated_at\": \"2026-07-16T03:20:00-04:00\",\n    \"source_system\": {\n      \"system_name\": \"POS Restaurant Pro\",\n      \"system_version\": \"8.4.2\",\n      \"exported_by\": \"admin_asu01\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"PARAGUAY_ASU01\",\n      \"franchise_name\": \"La Cabrera Asuncion Centro\",\n      \"economic_group_code\": \"GRP_PARAGUAY\",\n      \"economic_group_name\": \"Grupo Paraguay\",\n      \"country\": \"Paraguay\",\n      \"city\": \"Asuncion\",\n      \"timezone\": \"America/Asuncion\",\n      \"currency\": \"PYG\"\n    },\n    \"extraction_window\": {\n      \"from\": \"2026-07-15T06:00:00-04:00\",\n      \"to\": \"2026-07-16T05:59:59-04:00\"\n    },\n    \"upload_type\": \"FULL_DAY\",\n    \"control_totals\": {\n      \"ticket_count\": 2,\n      \"item_line_count\": 5,\n      \"gross_sales_amount\": 625000.0,\n      \"discount_amount\": 45000.0,\n      \"net_sales_amount\": 580000.0,\n      \"tax_amount\": 58000.0,\n      \"covers_total\": 5,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS-ASU01-20260715-000125\",\n      \"ticket_number\": \"000125\",\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-07-15T20:15:10-04:00\",\n      \"closed_at\": \"2026-07-15T21:42:35-04:00\",\n      \"business_date\": \"2026-07-15\",\n      \"meal_period\": \"DINNER\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"SALON_PRINCIPAL\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"MZ-004\",\n        \"waiter_name\": \"Carlos Benitez\"\n      },\n      \"covers\": 3,\n      \"currency\": \"PYG\",\n      \"amounts\": {\n        \"gross_amount\": 395000.0,\n        \"discount_amount\": 45000.0,\n        \"net_amount\": 350000.0,\n        \"tax_amount\": 35000.0,\n        \"tip_amount\": 15000.0,\n        \"total_paid_amount\": 365000.0\n      },\n      \"discounts\": [\n        {\n          \"discount_code\": \"PROMO_BANCO_10\",\n          \"discount_name\": \"Promocion Banco 10%\",\n          \"discount_type\": \"PERCENTAGE\",\n          \"discount_value\": 10.0,\n          \"discount_amount\": 45000.0\n        }\n      ],\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": 365000.0\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"ENT-001\",\n          \"product_name\": \"Empanada Criolla\",\n          \"product_category\": \"STARTER\",\n          \"product_family\": \"ENTRADAS\",\n          \"product_subfamily\": \"EMPANADAS\",\n          \"quantity\": 3.0,\n          \"unit_price\": 25000.0,\n          \"gross_amount\": 75000.0,\n          \"discount_amount\": 7500.0,\n          \"net_amount\": 67500.0,\n          \"tax_amount\": 6750.0,\n          \"is_discounted\": true,\n          \"is_voided\": false,\n          \"ordered_at\": \"2026-07-15T20:18:00-04:00\",\n          \"served_at\": \"2026-07-15T20:29:00-04:00\"\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"product_family\": \"CARNES\",\n          \"product_subfamily\": \"BIFE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 125000.0,\n          \"gross_amount\": 250000.0,\n          \"discount_amount\": 25000.0,\n          \"net_amount\": 225000.0,\n          \"tax_amount\": 22500.0,\n          \"is_discounted\": true,\n          \"is_voided\": false,\n          \"ordered_at\": \"2026-07-15T20:25:00-04:00\",\n          \"served_at\": \"2026-07-15T20:52:00-04:00\",\n          \"notes\": \"Punto jugoso\"\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"POS-010\",\n          \"product_name\": \"Flan Casero\",\n          \"product_category\": \"DESSERT\",\n          \"product_family\": \"POSTRES\",\n          \"product_subfamily\": \"FLANES\",\n          \"quantity\": 2.0,\n          \"unit_price\": 35000.0,\n          \"gross_amount\": 70000.0,\n          \"discount_amount\": 12500.0,\n          \"net_amount\": 57500.0,\n          \"tax_amount\": 5750.0,\n          \"is_discounted\": true,\n          \"is_voided\": false,\n          \"ordered_at\": \"2026-07-15T21:15:00-04:00\",\n          \"served_at\": \"2026-07-15T21:23:00-04:00\"\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS-ASU01-20260715-000126\",\n      \"ticket_number\": \"000126\",\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-07-15T22:05:42-04:00\",\n      \"closed_at\": \"2026-07-15T23:10:08-04:00\",\n      \"business_date\": \"2026-07-15\",\n      \"meal_period\": \"DINNER\",\n      \"table\": {\n        \"table_number\": \"8\",\n        \"table_area\": \"TERRAZA\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"MZ-002\",\n        \"waiter_name\": \"Ana Duarte\"\n      },\n      \"covers\": 2,\n      \"currency\": \"PYG\",\n      \"amounts\": {\n        \"gross_amount\": 230000.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 230000.0,\n        \"tax_amount\": 23000.0,\n        \"tip_amount\": 10000.0,\n        \"total_paid_amount\": 240000.0\n      },\n      \"discounts\": [],\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 240000.0\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-220\",\n          \"product_name\": \"Ojo de Bife\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"product_family\": \"CARNES\",\n          \"product_subfamily\": \"BIFE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 160000.0,\n          \"gross_amount\": 160000.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 160000.0,\n          \"tax_amount\": 16000.0,\n          \"is_discounted\": false,\n          \"is_voided\": false,\n          \"ordered_at\": \"2026-07-15T22:12:00-04:00\",\n          \"served_at\": \"2026-07-15T22:41:00-04:00\",\n          \"notes\": \"A punto\"\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAF-001\",\n          \"product_name\": \"Cafe Espresso\",\n          \"product_category\": \"COFFEE\",\n          \"product_family\": \"CAFETERIA\",\n          \"product_subfamily\": \"CAFE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 35000.0,\n          \"gross_amount\": 70000.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 70000.0,\n          \"tax_amount\": 7000.0,\n          \"is_discounted\": false,\n          \"is_voided\": false,\n          \"ordered_at\": \"2026-07-15T22:58:00-04:00\",\n          \"served_at\": \"2026-07-15T23:03:00-04:00\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sales", "daily-batch"]
+            },
+            "description": "Envia un batch diario de ventas de la franquicia Paraguay"
+          }
+        },
+        {
+          "name": "POST Daily Sales Batch - Miami",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key_miami}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.0\",\n  \"batch_header\": {\n    \"batch_id\": \"LC-MIAMI-01-20260715-001\",\n    \"business_date\": \"2026-07-15\",\n    \"generated_at\": \"2026-07-16T04:00:00-04:00\",\n    \"source_system\": {\n      \"system_name\": \"Toast POS\",\n      \"system_version\": \"2024.1\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MIAMI_01\",\n      \"franchise_name\": \"La Cabrera Miami Beach\",\n      \"economic_group_code\": \"GRP_MIAMI\",\n      \"country\": \"United States\",\n      \"city\": \"Miami\",\n      \"timezone\": \"America/New_York\",\n      \"currency\": \"USD\"\n    },\n    \"upload_type\": \"FULL_DAY\",\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 3,\n      \"gross_sales_amount\": 145.00,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": 145.00,\n      \"covers_total\": 2\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"TOAST-MIA-20260715-001234\",\n      \"ticket_number\": \"1234\",\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-07-15T19:30:00-04:00\",\n      \"closed_at\": \"2026-07-15T21:15:00-04:00\",\n      \"business_date\": \"2026-07-15\",\n      \"meal_period\": \"DINNER\",\n      \"table\": {\n        \"table_number\": \"21\",\n        \"table_area\": \"PATIO\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W-001\",\n        \"waiter_name\": \"James Wilson\"\n      },\n      \"covers\": 2,\n      \"currency\": \"USD\",\n      \"amounts\": {\n        \"gross_amount\": 145.00,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 145.00,\n        \"tax_amount\": 10.15,\n        \"tip_amount\": 29.00,\n        \"total_paid_amount\": 184.15\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"AMEX\",\n          \"amount\": 184.15\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"APP-002\",\n          \"product_name\": \"Grilled Provoleta\",\n          \"product_category\": \"STARTER\",\n          \"product_family\": \"APPETIZERS\",\n          \"quantity\": 1.0,\n          \"unit_price\": 22.00,\n          \"gross_amount\": 22.00,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 22.00,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"STK-102\",\n          \"product_name\": \"Ribeye Steak\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"product_family\": \"STEAKS\",\n          \"quantity\": 2.0,\n          \"unit_price\": 65.00,\n          \"gross_amount\": 130.00,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 130.00,\n          \"is_discounted\": false,\n          \"is_voided\": false,\n          \"notes\": \"Medium rare\"\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"SID-001\",\n          \"product_name\": \"Truffle Fries\",\n          \"product_category\": \"SIDE_DISH\",\n          \"product_family\": \"SIDES\",\n          \"quantity\": 1.0,\n          \"unit_price\": 14.00,\n          \"gross_amount\": 14.00,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 14.00,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sales", "daily-batch"]
+            },
+            "description": "Envia un batch diario de ventas de la franquicia Miami"
+          }
+        },
+        {
+          "name": "GET Batch Status",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key_paraguay}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch/LC-PARAGUAY-ASU01-20260715-001/status",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "sales", "daily-batch", "LC-PARAGUAY-ASU01-20260715-001", "status"]
+            },
+            "description": "Consulta el estado de un batch enviado"
+          }
+        },
+        {
+          "name": "GET JSON Schema",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/integration/schema/daily-sales-batch",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "integration", "schema", "daily-sales-batch"]
+            },
+            "description": "Obtiene el JSON Schema para validacion"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "description": "Endpoints de consulta para dashboard",
+      "item": [
+        {
+          "name": "GET Ventas Resumen",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/ventas/resumen?fechaDesde=2026-07-01&fechaHasta=2026-07-31",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "ventas", "resumen"],
+              "query": [
+                {
+                  "key": "fechaDesde",
+                  "value": "2026-07-01"
+                },
+                {
+                  "key": "fechaHasta",
+                  "value": "2026-07-31"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Ventas por Franquicia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/ventas/por-franquicia",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "ventas", "por-franquicia"]
+            }
+          }
+        },
+        {
+          "name": "GET Ventas por Grupo Economico",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/ventas/por-grupo-economico",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "ventas", "por-grupo-economico"]
+            }
+          }
+        },
+        {
+          "name": "GET Ventas por Mozo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/ventas/por-mozo?franquiciaId=1&fechaDesde=2026-07-01",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "ventas", "por-mozo"],
+              "query": [
+                {
+                  "key": "franquiciaId",
+                  "value": "1"
+                },
+                {
+                  "key": "fechaDesde",
+                  "value": "2026-07-01"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Ventas por Producto",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/ventas/por-producto?franquiciaId=1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "ventas", "por-producto"],
+              "query": [
+                {
+                  "key": "franquiciaId",
+                  "value": "1"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Ventas por Tipo Plato",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/ventas/por-tipo-plato",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "ventas", "por-tipo-plato"]
+            }
+          }
+        },
+        {
+          "name": "GET Ocupacion Mesas",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/ventas/ocupacion-mesas",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "ventas", "ocupacion-mesas"]
+            }
+          }
+        },
+        {
+          "name": "GET Estado Integracion Franquicias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/dashboard/integraciones/estado-franquicias",
+              "host": ["{{base_url}}"],
+              "path": ["api", "v1", "dashboard", "integraciones", "estado-franquicias"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "GET Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

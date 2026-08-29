@@ -1,0 +1,60 @@
+# ============================================
+# LA CABRERA - Docker Compose PRODUCCION
+# Solo Frontend + Backend (SQL Server externo)
+# ============================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------
+  # Frontend (React + Nginx)
+  # ----------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+    container_name: lacabrera-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - lacabrera-network
+    restart: always
+
+  # ----------------------------------------
+  # Backend API (.NET 8)
+  # ----------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: backend/LaCabrera.Api/Dockerfile
+    container_name: lacabrera-api
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__LaCabreraDb=${DB_CONNECTION_STRING}
+      - Serilog__MinimumLevel__Default=Warning
+    networks:
+      - lacabrera-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: always
+    volumes:
+      - api-logs:/app/logs
+
+networks:
+  lacabrera-network:
+    driver: bridge
+
+volumes:
+  api-logs:
+    driver: local

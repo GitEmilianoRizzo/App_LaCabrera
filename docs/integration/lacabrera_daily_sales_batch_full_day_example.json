@@ -1,0 +1,441 @@
+{
+  "schema_version": "1.0",
+  "batch_header": {
+    "batch_id": "LC-MIAMI-01-20260714-001",
+    "business_date": "2026-07-14",
+    "generated_at": "2026-07-15T02:30:00Z",
+    "load_type": "FULL_DAY",
+    "franchise": {
+      "franchise_code": "MIAMI_01",
+      "franchise_name": "La Cabrera Miami Beach",
+      "country": "United States",
+      "city": "Miami",
+      "timezone": "America/New_York",
+      "currency": "USD"
+    },
+    "source_system": {
+      "name": "Toast POS",
+      "version": "2024.1",
+      "exported_by": "auto_export_job"
+    },
+    "control_totals": {
+      "ticket_count": 5,
+      "item_line_count": 23,
+      "covers_total": 18,
+      "gross_sales": 847.00,
+      "total_discounts": 38.70,
+      "net_sales": 808.30,
+      "total_taxes": 56.58,
+      "total_tips": 145.49
+    }
+  },
+  "tickets": [
+    {
+      "ticket_id": "TKT-MI-20260714-0001",
+      "ticket_number": "M-2001",
+      "order_id": "ORD-71420001",
+      "status": "CLOSED",
+      "opened_at": "2026-07-14T12:15:00-04:00",
+      "closed_at": "2026-07-14T13:28:00-04:00",
+      "meal_period": "LUNCH",
+      "service": {
+        "table_number": "12",
+        "table_area": "MAIN_DINING",
+        "waiter_id": "W-001",
+        "waiter_name": "James Wilson",
+        "covers": 2
+      },
+      "currency": "USD",
+      "amounts": {
+        "gross_amount": 154.00,
+        "discount_amount": 0.00,
+        "net_amount": 154.00,
+        "tax_amount": 10.78,
+        "service_charge": 0.00,
+        "tip_amount": 27.72,
+        "total_paid": 192.50
+      },
+      "items": [
+        {
+          "line_id": "L-001",
+          "product_code": "APP-001",
+          "product_name": "Empanadas (3)",
+          "category": "STARTER",
+          "family": "APPETIZERS",
+          "quantity": 1,
+          "unit_price": 18.00,
+          "gross_amount": 18.00,
+          "discount_amount": 0.00,
+          "net_amount": 18.00
+        },
+        {
+          "line_id": "L-002",
+          "product_code": "STK-101",
+          "product_name": "NY Strip Steak",
+          "category": "MAIN_COURSE",
+          "family": "STEAKS",
+          "quantity": 1,
+          "unit_price": 58.00,
+          "gross_amount": 58.00,
+          "discount_amount": 0.00,
+          "net_amount": 58.00
+        },
+        {
+          "line_id": "L-003",
+          "product_code": "STK-102",
+          "product_name": "Ribeye Steak",
+          "category": "MAIN_COURSE",
+          "family": "STEAKS",
+          "quantity": 1,
+          "unit_price": 65.00,
+          "gross_amount": 65.00,
+          "discount_amount": 0.00,
+          "net_amount": 65.00
+        },
+        {
+          "line_id": "L-004",
+          "product_code": "SID-001",
+          "product_name": "Truffle Fries",
+          "category": "SIDE_DISH",
+          "family": "SIDES",
+          "quantity": 1,
+          "unit_price": 14.00,
+          "gross_amount": 14.00,
+          "discount_amount": 0.00,
+          "net_amount": 14.00
+        }
+      ],
+      "discounts": [],
+      "payment_methods": [
+        {
+          "method": "CREDIT_CARD",
+          "card_brand": "VISA",
+          "amount": 192.50
+        }
+      ]
+    },
+    {
+      "ticket_id": "TKT-MI-20260714-0002",
+      "ticket_number": "M-2002",
+      "order_id": "ORD-71420002",
+      "status": "CLOSED",
+      "opened_at": "2026-07-14T19:30:00-04:00",
+      "closed_at": "2026-07-14T21:15:00-04:00",
+      "meal_period": "DINNER",
+      "service": {
+        "table_number": "25",
+        "table_area": "PATIO",
+        "waiter_id": "W-002",
+        "waiter_name": "Sofia Rodriguez",
+        "covers": 4
+      },
+      "currency": "USD",
+      "amounts": {
+        "gross_amount": 258.00,
+        "discount_amount": 38.70,
+        "net_amount": 219.30,
+        "tax_amount": 15.35,
+        "service_charge": 0.00,
+        "tip_amount": 43.86,
+        "total_paid": 278.51
+      },
+      "items": [
+        {
+          "line_id": "L-001",
+          "product_code": "APP-002",
+          "product_name": "Grilled Provoleta",
+          "category": "STARTER",
+          "family": "APPETIZERS",
+          "quantity": 1,
+          "unit_price": 22.00,
+          "gross_amount": 22.00,
+          "discount_amount": 0.00,
+          "net_amount": 22.00
+        },
+        {
+          "line_id": "L-002",
+          "product_code": "APP-003",
+          "product_name": "Chorizo Argentino",
+          "category": "STARTER",
+          "family": "APPETIZERS",
+          "quantity": 1,
+          "unit_price": 16.00,
+          "gross_amount": 16.00,
+          "discount_amount": 0.00,
+          "net_amount": 16.00
+        },
+        {
+          "line_id": "L-003",
+          "product_code": "STK-104",
+          "product_name": "Porterhouse for Two",
+          "category": "MAIN_COURSE",
+          "family": "STEAKS",
+          "quantity": 1,
+          "unit_price": 135.00,
+          "gross_amount": 135.00,
+          "discount_amount": 0.00,
+          "net_amount": 135.00
+        },
+        {
+          "line_id": "L-004",
+          "product_code": "SID-002",
+          "product_name": "Mashed Potatoes",
+          "category": "SIDE_DISH",
+          "family": "SIDES",
+          "quantity": 2,
+          "unit_price": 12.00,
+          "gross_amount": 24.00,
+          "discount_amount": 0.00,
+          "net_amount": 24.00
+        },
+        {
+          "line_id": "L-005",
+          "product_code": "WIN-001",
+          "product_name": "Malbec Reserve",
+          "category": "WINE",
+          "family": "WINES",
+          "quantity": 1,
+          "unit_price": 75.00,
+          "gross_amount": 75.00,
+          "discount_amount": 0.00,
+          "net_amount": 75.00
+        }
+      ],
+      "discounts": [
+        {
+          "discount_code": "VIP15",
+          "discount_name": "15% VIP Discount",
+          "discount_type": "PERCENTAGE",
+          "discount_value": 15.00,
+          "discount_amount": 38.70
+        }
+      ],
+      "payment_methods": [
+        {
+          "method": "CREDIT_CARD",
+          "card_brand": "AMEX",
+          "amount": 278.51
+        }
+      ]
+    },
+    {
+      "ticket_id": "TKT-MI-20260714-0003",
+      "ticket_number": "M-2003",
+      "order_id": "ORD-71420003",
+      "status": "CLOSED",
+      "opened_at": "2026-07-14T20:00:00-04:00",
+      "closed_at": "2026-07-14T22:30:00-04:00",
+      "meal_period": "DINNER",
+      "service": {
+        "table_number": "8",
+        "table_area": "MAIN_DINING",
+        "waiter_id": "W-003",
+        "waiter_name": "David Chen",
+        "covers": 6
+      },
+      "currency": "USD",
+      "amounts": {
+        "gross_amount": 285.00,
+        "discount_amount": 0.00,
+        "net_amount": 285.00,
+        "tax_amount": 19.95,
+        "service_charge": 0.00,
+        "tip_amount": 51.30,
+        "total_paid": 356.25
+      },
+      "items": [
+        {
+          "line_id": "L-001",
+          "product_code": "APP-004",
+          "product_name": "Sweetbreads",
+          "category": "STARTER",
+          "family": "APPETIZERS",
+          "quantity": 2,
+          "unit_price": 24.00,
+          "gross_amount": 48.00,
+          "discount_amount": 0.00,
+          "net_amount": 48.00
+        },
+        {
+          "line_id": "L-002",
+          "product_code": "STK-107",
+          "product_name": "Mixed Grill Parrillada",
+          "category": "MAIN_COURSE",
+          "family": "STEAKS",
+          "quantity": 2,
+          "unit_price": 95.00,
+          "gross_amount": 190.00,
+          "discount_amount": 0.00,
+          "net_amount": 190.00
+        },
+        {
+          "line_id": "L-003",
+          "product_code": "SID-003",
+          "product_name": "Grilled Vegetables",
+          "category": "SIDE_DISH",
+          "family": "SIDES",
+          "quantity": 2,
+          "unit_price": 14.00,
+          "gross_amount": 28.00,
+          "discount_amount": 0.00,
+          "net_amount": 28.00
+        },
+        {
+          "line_id": "L-004",
+          "product_code": "BEV-003",
+          "product_name": "Craft Beer",
+          "category": "BEVERAGE",
+          "family": "BEVERAGES",
+          "quantity": 3,
+          "unit_price": 12.00,
+          "gross_amount": 36.00,
+          "discount_amount": 0.00,
+          "net_amount": 36.00
+        }
+      ],
+      "discounts": [],
+      "payment_methods": [
+        {
+          "method": "CREDIT_CARD",
+          "card_brand": "MASTERCARD",
+          "amount": 200.00
+        },
+        {
+          "method": "CREDIT_CARD",
+          "card_brand": "VISA",
+          "amount": 156.25
+        }
+      ]
+    },
+    {
+      "ticket_id": "TKT-MI-20260714-0004",
+      "ticket_number": "M-2004",
+      "order_id": "ORD-71420004",
+      "status": "CLOSED",
+      "opened_at": "2026-07-14T20:45:00-04:00",
+      "closed_at": "2026-07-14T22:00:00-04:00",
+      "meal_period": "DINNER",
+      "service": {
+        "table_number": "3",
+        "table_area": "MAIN_DINING",
+        "waiter_id": "W-001",
+        "waiter_name": "James Wilson",
+        "covers": 2
+      },
+      "currency": "USD",
+      "amounts": {
+        "gross_amount": 98.00,
+        "discount_amount": 0.00,
+        "net_amount": 98.00,
+        "tax_amount": 6.86,
+        "service_charge": 0.00,
+        "tip_amount": 17.64,
+        "total_paid": 122.50
+      },
+      "items": [
+        {
+          "line_id": "L-001",
+          "product_code": "STK-106",
+          "product_name": "Skirt Steak",
+          "category": "MAIN_COURSE",
+          "family": "STEAKS",
+          "quantity": 2,
+          "unit_price": 48.00,
+          "gross_amount": 96.00,
+          "discount_amount": 0.00,
+          "net_amount": 96.00
+        },
+        {
+          "line_id": "L-002",
+          "product_code": "BEV-002",
+          "product_name": "Soft Drink",
+          "category": "BEVERAGE",
+          "family": "BEVERAGES",
+          "quantity": 2,
+          "unit_price": 5.00,
+          "gross_amount": 10.00,
+          "discount_amount": 0.00,
+          "net_amount": 10.00
+        }
+      ],
+      "discounts": [],
+      "payment_methods": [
+        {
+          "method": "DEBIT_CARD",
+          "amount": 122.50
+        }
+      ]
+    },
+    {
+      "ticket_id": "TKT-MI-20260714-0005",
+      "ticket_number": "M-2005",
+      "order_id": "ORD-71420005",
+      "status": "CLOSED",
+      "opened_at": "2026-07-14T21:30:00-04:00",
+      "closed_at": "2026-07-14T23:15:00-04:00",
+      "meal_period": "DINNER",
+      "service": {
+        "table_number": "30",
+        "table_area": "PATIO",
+        "waiter_id": "W-002",
+        "waiter_name": "Sofia Rodriguez",
+        "covers": 4
+      },
+      "currency": "USD",
+      "amounts": {
+        "gross_amount": 52.00,
+        "discount_amount": 0.00,
+        "net_amount": 52.00,
+        "tax_amount": 3.64,
+        "service_charge": 0.00,
+        "tip_amount": 4.97,
+        "total_paid": 60.61
+      },
+      "items": [
+        {
+          "line_id": "L-001",
+          "product_code": "DES-001",
+          "product_name": "Dulce de Leche Flan",
+          "category": "DESSERT",
+          "family": "DESSERTS",
+          "quantity": 2,
+          "unit_price": 12.00,
+          "gross_amount": 24.00,
+          "discount_amount": 0.00,
+          "net_amount": 24.00
+        },
+        {
+          "line_id": "L-002",
+          "product_code": "DES-002",
+          "product_name": "Tiramisu",
+          "category": "DESSERT",
+          "family": "DESSERTS",
+          "quantity": 1,
+          "unit_price": 14.00,
+          "gross_amount": 14.00,
+          "discount_amount": 0.00,
+          "net_amount": 14.00
+        },
+        {
+          "line_id": "L-003",
+          "product_code": "COF-001",
+          "product_name": "Espresso",
+          "category": "COFFEE",
+          "family": "COFFEE",
+          "quantity": 4,
+          "unit_price": 5.00,
+          "gross_amount": 20.00,
+          "discount_amount": 0.00,
+          "net_amount": 20.00
+        }
+      ],
+      "discounts": [],
+      "payment_methods": [
+        {
+          "method": "CASH",
+          "amount": 60.61
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,539 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lacabrera.com/schemas/daily-sales-batch/v1.0",
+  "title": "LA CABRERA Daily Sales Batch",
+  "description": "Schema for daily sales batch submission from franchises to LA CABRERA central system",
+  "type": "object",
+  "required": ["schema_version", "batch_header", "tickets"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Version of the JSON schema",
+      "enum": ["1.0"],
+      "examples": ["1.0"]
+    },
+    "batch_header": {
+      "type": "object",
+      "description": "Metadata about the batch submission",
+      "required": [
+        "batch_id",
+        "business_date",
+        "generated_at",
+        "franchise",
+        "control_totals"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "batch_id": {
+          "type": "string",
+          "description": "Unique identifier for this batch. Format: LC_<franchise_code>_<business_date>_<sequence>",
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "minLength": 10,
+          "maxLength": 200,
+          "examples": ["LC-PARAGUAY-ASU01-20260714-001"]
+        },
+        "business_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Business date for the sales data (YYYY-MM-DD)",
+          "examples": ["2026-07-14"]
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the batch was generated (ISO 8601 with timezone)",
+          "examples": ["2026-07-15T03:20:00-04:00"]
+        },
+        "source_system": {
+          "type": "object",
+          "description": "Information about the source POS system",
+          "additionalProperties": false,
+          "properties": {
+            "system_name": {
+              "type": "string",
+              "maxLength": 100,
+              "examples": ["POS Restaurant Pro"]
+            },
+            "system_version": {
+              "type": "string",
+              "maxLength": 50,
+              "examples": ["8.4.2"]
+            },
+            "exported_by": {
+              "type": "string",
+              "maxLength": 100,
+              "examples": ["admin_asu01"]
+            }
+          }
+        },
+        "franchise": {
+          "type": "object",
+          "description": "Franchise identification",
+          "required": ["franchise_code", "timezone", "currency"],
+          "additionalProperties": false,
+          "properties": {
+            "franchise_code": {
+              "type": "string",
+              "description": "Unique franchise identifier",
+              "pattern": "^[A-Za-z0-9_]+$",
+              "minLength": 3,
+              "maxLength": 50,
+              "examples": ["PARAGUAY_ASU01"]
+            },
+            "franchise_name": {
+              "type": "string",
+              "maxLength": 200,
+              "examples": ["La Cabrera Asuncion Centro"]
+            },
+            "economic_group_code": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_]+$",
+              "maxLength": 50,
+              "examples": ["GRP_PARAGUAY"]
+            },
+            "economic_group_name": {
+              "type": "string",
+              "maxLength": 200,
+              "examples": ["Grupo Paraguay"]
+            },
+            "country": {
+              "type": "string",
+              "maxLength": 100,
+              "examples": ["Paraguay"]
+            },
+            "city": {
+              "type": "string",
+              "maxLength": 100,
+              "examples": ["Asuncion"]
+            },
+            "timezone": {
+              "type": "string",
+              "description": "IANA timezone identifier",
+              "examples": ["America/Asuncion", "America/New_York"]
+            },
+            "currency": {
+              "type": "string",
+              "description": "ISO 4217 currency code",
+              "pattern": "^[A-Z]{3}$",
+              "examples": ["PYG", "USD", "EUR"]
+            }
+          }
+        },
+        "extraction_window": {
+          "type": "object",
+          "description": "Time window for the extracted data",
+          "additionalProperties": false,
+          "properties": {
+            "from": {
+              "type": "string",
+              "format": "date-time",
+              "examples": ["2026-07-14T06:00:00-04:00"]
+            },
+            "to": {
+              "type": "string",
+              "format": "date-time",
+              "examples": ["2026-07-15T05:59:59-04:00"]
+            }
+          }
+        },
+        "upload_type": {
+          "type": "string",
+          "description": "Type of data upload",
+          "enum": ["FULL_DAY", "INCREMENTAL", "CORRECTION"],
+          "default": "FULL_DAY"
+        },
+        "control_totals": {
+          "type": "object",
+          "description": "Control totals for validation",
+          "required": ["ticket_count", "item_line_count"],
+          "additionalProperties": false,
+          "properties": {
+            "ticket_count": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total number of tickets in this batch"
+            },
+            "item_line_count": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total number of item lines across all tickets"
+            },
+            "gross_sales_amount": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Sum of all gross amounts"
+            },
+            "discount_amount": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Sum of all discounts"
+            },
+            "net_sales_amount": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Sum of all net amounts"
+            },
+            "tax_amount": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Sum of all taxes"
+            },
+            "service_charge_amount": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Sum of all service charges"
+            },
+            "tip_amount": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Sum of all tips"
+            },
+            "covers_total": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total number of covers/guests"
+            },
+            "cancelled_ticket_count": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Number of cancelled tickets"
+            }
+          }
+        }
+      }
+    },
+    "tickets": {
+      "type": "array",
+      "description": "Array of sales tickets",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "required": [
+          "ticket_id",
+          "ticket_number",
+          "status",
+          "opened_at",
+          "closed_at",
+          "business_date",
+          "currency",
+          "amounts",
+          "items"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "description": "Unique ticket identifier from source system",
+            "minLength": 1,
+            "maxLength": 200,
+            "examples": ["POS-ASU01-20260714-000123"]
+          },
+          "ticket_number": {
+            "type": "string",
+            "description": "Human-readable ticket number",
+            "maxLength": 100,
+            "examples": ["000123"]
+          },
+          "external_order_id": {
+            "type": ["string", "null"],
+            "description": "External order ID (e.g., from delivery app)",
+            "maxLength": 200
+          },
+          "fiscal_document": {
+            "type": ["object", "null"],
+            "description": "Fiscal document information",
+            "additionalProperties": false,
+            "properties": {
+              "document_type": {
+                "type": "string",
+                "maxLength": 50,
+                "examples": ["INVOICE", "RECEIPT", "TICKET"]
+              },
+              "document_number": {
+                "type": "string",
+                "maxLength": 100,
+                "examples": ["001-001-00004567"]
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "description": "Ticket status",
+            "enum": ["OPEN", "CLOSED", "CANCELLED", "VOIDED", "REFUNDED"]
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the ticket was opened"
+          },
+          "closed_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "When the ticket was closed"
+          },
+          "business_date": {
+            "type": "string",
+            "format": "date",
+            "description": "Business date for this ticket"
+          },
+          "meal_period": {
+            "type": ["string", "null"],
+            "description": "Meal period",
+            "enum": ["BREAKFAST", "LUNCH", "TEA", "DINNER", "LATE_NIGHT", "UNKNOWN", null]
+          },
+          "table": {
+            "type": ["object", "null"],
+            "description": "Table information",
+            "additionalProperties": false,
+            "properties": {
+              "table_number": {
+                "type": "string",
+                "maxLength": 20,
+                "examples": ["12"]
+              },
+              "table_area": {
+                "type": "string",
+                "maxLength": 100,
+                "examples": ["SALON_PRINCIPAL", "TERRAZA", "PATIO"]
+              }
+            }
+          },
+          "waiter": {
+            "type": ["object", "null"],
+            "description": "Waiter/server information",
+            "additionalProperties": false,
+            "properties": {
+              "waiter_id": {
+                "type": "string",
+                "maxLength": 100,
+                "examples": ["MZ-004"]
+              },
+              "waiter_name": {
+                "type": "string",
+                "maxLength": 200,
+                "examples": ["Carlos Benitez"]
+              }
+            }
+          },
+          "covers": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "Number of guests/covers"
+          },
+          "currency": {
+            "type": "string",
+            "description": "ISO 4217 currency code",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "amounts": {
+            "type": "object",
+            "description": "Monetary amounts for the ticket",
+            "required": ["gross_amount", "discount_amount", "net_amount"],
+            "additionalProperties": false,
+            "properties": {
+              "gross_amount": {
+                "type": "number",
+                "description": "Total before discounts"
+              },
+              "discount_amount": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Total discounts applied"
+              },
+              "net_amount": {
+                "type": "number",
+                "description": "Amount after discounts"
+              },
+              "tax_amount": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Tax amount"
+              },
+              "service_charge_amount": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Service charge"
+              },
+              "tip_amount": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Tip amount"
+              },
+              "total_paid_amount": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Total amount paid by customer"
+              }
+            }
+          },
+          "discounts": {
+            "type": "array",
+            "description": "Discounts applied to this ticket",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "discount_code": {
+                  "type": ["string", "null"],
+                  "maxLength": 100
+                },
+                "discount_name": {
+                  "type": ["string", "null"],
+                  "maxLength": 200
+                },
+                "discount_type": {
+                  "type": "string",
+                  "enum": ["PERCENTAGE", "FIXED_AMOUNT", "PROMO", "OTHER"]
+                },
+                "discount_value": {
+                  "type": "number",
+                  "description": "Percentage or fixed amount value"
+                },
+                "discount_amount": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Actual discount amount applied"
+                }
+              }
+            }
+          },
+          "payment_methods": {
+            "type": "array",
+            "description": "Payment methods used",
+            "items": {
+              "type": "object",
+              "required": ["payment_method", "amount"],
+              "additionalProperties": false,
+              "properties": {
+                "payment_method": {
+                  "type": "string",
+                  "enum": ["CASH", "DEBIT_CARD", "CREDIT_CARD", "BANK_TRANSFER", "QR", "MERCADO_PAGO", "DELIVERY_APP", "OTHER"]
+                },
+                "payment_brand": {
+                  "type": ["string", "null"],
+                  "maxLength": 100,
+                  "examples": ["VISA", "MASTERCARD", "AMEX"]
+                },
+                "amount": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Amount paid with this method"
+                }
+              }
+            }
+          },
+          "items": {
+            "type": "array",
+            "description": "Line items (products sold)",
+            "minItems": 0,
+            "items": {
+              "type": "object",
+              "required": [
+                "line_id",
+                "product_code",
+                "product_name",
+                "product_category",
+                "quantity",
+                "unit_price",
+                "gross_amount",
+                "discount_amount",
+                "net_amount"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "line_id": {
+                  "type": "string",
+                  "description": "Unique line identifier within the ticket",
+                  "minLength": 1,
+                  "maxLength": 100
+                },
+                "product_code": {
+                  "type": "string",
+                  "description": "Product code from source system",
+                  "maxLength": 100
+                },
+                "product_name": {
+                  "type": "string",
+                  "description": "Product name",
+                  "maxLength": 200
+                },
+                "product_category": {
+                  "type": "string",
+                  "description": "Product category",
+                  "enum": ["STARTER", "MAIN_COURSE", "SIDE_DISH", "DESSERT", "COFFEE", "BEVERAGE", "WINE", "COCKTAIL", "OTHER"]
+                },
+                "product_family": {
+                  "type": ["string", "null"],
+                  "maxLength": 100,
+                  "examples": ["CARNES", "ENTRADAS", "POSTRES"]
+                },
+                "product_subfamily": {
+                  "type": ["string", "null"],
+                  "maxLength": 100,
+                  "examples": ["BIFE", "EMPANADAS", "FLANES"]
+                },
+                "quantity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Quantity sold"
+                },
+                "unit_price": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Price per unit"
+                },
+                "gross_amount": {
+                  "type": "number",
+                  "description": "quantity * unit_price"
+                },
+                "discount_amount": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Discount on this line"
+                },
+                "net_amount": {
+                  "type": "number",
+                  "description": "gross_amount - discount_amount"
+                },
+                "tax_amount": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Tax on this line"
+                },
+                "is_discounted": {
+                  "type": "boolean",
+                  "description": "Whether this item has a discount"
+                },
+                "is_voided": {
+                  "type": "boolean",
+                  "description": "Whether this item was voided"
+                },
+                "void_reason": {
+                  "type": ["string", "null"],
+                  "maxLength": 500,
+                  "description": "Reason for voiding"
+                },
+                "ordered_at": {
+                  "type": ["string", "null"],
+                  "format": "date-time",
+                  "description": "When the item was ordered"
+                },
+                "served_at": {
+                  "type": ["string", "null"],
+                  "format": "date-time",
+                  "description": "When the item was served"
+                },
+                "notes": {
+                  "type": ["string", "null"],
+                  "maxLength": 1000,
+                  "description": "Special instructions or notes"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
