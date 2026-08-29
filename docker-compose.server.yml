@@ -1,0 +1,95 @@
+# ============================================
+# LA CABRERA - Docker Compose SERVER/VPS
+# Stack completo: Frontend + Backend + SQL Server
+# Puerto 80 para acceso externo
+# ============================================
+
+version: '3.8'
+
+services:
+  # ----------------------------------------
+  # Frontend (React + Nginx)
+  # ----------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: /api/v1
+    container_name: lacabrera-frontend
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - lacabrera-network
+    restart: always
+
+  # ----------------------------------------
+  # Backend API (.NET 8)
+  # ----------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: backend/LaCabrera.Api/Dockerfile
+    container_name: lacabrera-api
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__LaCabreraDb=${DB_CONNECTION_STRING:-Server=sqlserver;Database=LaCabreraDB;User Id=sa;Password=${SA_PASSWORD:-LaCabrera2026!Prod};TrustServerCertificate=True}
+      - Jwt__Secret=${JWT_SECRET:-LaCabreraJwtSecretKey2026ProductionSecure!}
+      - Jwt__Issuer=${JWT_ISSUER:-LaCabrera.Api}
+      - Jwt__Audience=${JWT_AUDIENCE:-LaCabrera.Frontend}
+      - Jwt__ExpirationMinutes=${JWT_EXPIRATION_MINUTES:-60}
+      - Jwt__RefreshExpirationDays=${JWT_REFRESH_EXPIRATION_DAYS:-7}
+      - Serilog__MinimumLevel__Default=Warning
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    networks:
+      - lacabrera-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    restart: always
+    volumes:
+      - api-logs:/app/logs
+
+  # ----------------------------------------
+  # SQL Server
+  # ----------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: lacabrera-sqlserver
+    ports:
+      - "1433:1433"
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD:-LaCabrera2026!Prod}
+      - MSSQL_PID=Developer
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    networks:
+      - lacabrera-network
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 45s
+    restart: always
+
+networks:
+  lacabrera-network:
+    driver: bridge
+
+volumes:
+  sqlserver-data:
+    driver: local
+  api-logs:
+    driver: local
