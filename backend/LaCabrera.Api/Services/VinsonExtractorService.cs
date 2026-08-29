@@ -147,8 +147,20 @@ public class VinsonExtractorService : IVinsonExtractorService
                 _logger.LogWarning("No se pudo obtener detalle de productos: HTTP {Code}", (int)responseDet.StatusCode);
             }
 
-            // 7. Indexar detalle por transactionId para JOIN
-            var detalleDict = detalle?.ToDictionary(d => d.TransactionId.ToString(), d => d) ?? new Dictionary<string, VinsonSalesFullInfo>();
+            // 7. Indexar detalle por transactionId para JOIN (usando GroupBy para evitar duplicados)
+            var detalleDict = detalle?
+                .GroupBy(d => d.TransactionId.ToString())
+                .ToDictionary(g => g.Key, g => g.First())
+                ?? new Dictionary<string, VinsonSalesFullInfo>();
+
+            // Log si hay duplicados
+            var duplicados = detalle?.GroupBy(d => d.TransactionId).Where(g => g.Count() > 1).ToList();
+            if (duplicados?.Any() == true)
+            {
+                _logger.LogWarning("Se encontraron {Count} TransactionIds duplicados en detalle de Vinson: {Ids}",
+                    duplicados.Count,
+                    string.Join(", ", duplicados.Take(5).Select(g => g.Key)));
+            }
 
             // 8. Crear batch de ingesta
             var batchId = await CrearBatchIngestaAsync(nodo.FranquiciaId, businessDay, jsonCabeceras);
