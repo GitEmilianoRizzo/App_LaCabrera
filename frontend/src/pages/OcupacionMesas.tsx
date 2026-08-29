@@ -21,8 +21,8 @@ export function OcupacionMesas() {
 
   // Calcular promedios
   const totalMesas = data?.length || 0
-  const avgTiempo = data?.reduce((sum, m) => sum + (m.tiempo_promedio_minutos || 0), 0) / (totalMesas || 1)
-  const avgRotacion = data?.reduce((sum, m) => sum + (m.rotacion_mesas || 0), 0) / (totalMesas || 1)
+  const avgTiempo = (data?.reduce((sum, m) => sum + (m.tiempo_promedio_minutos || 0), 0) || 0) / (totalMesas || 1)
+  const avgRotacion = (data?.reduce((sum, m) => sum + (m.rotacion_mesas || 0), 0) || 0) / (totalMesas || 1)
   const totalCubiertos = data?.reduce((sum, m) => sum + (m.total_cubiertos || 0), 0) || 0
 
   // Top mesas por rotacion

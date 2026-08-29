@@ -35,7 +35,7 @@ export function VentasFranquicia() {
   const franquicias = homeData?.map(f => ({
     id: f.franquicia_id,
     nombre: f.franquicia_nombre,
-    pais: f.pais,
+    pais: f.pais || '',
   })) || []
 
   const handleFilterChange = (newFilters: FilterValues) => {
