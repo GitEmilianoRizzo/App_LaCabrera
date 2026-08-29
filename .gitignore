@@ -1,5 +1,6 @@
 # ============================================
 # LA CABRERA - Git Ignore
+# Combined: Custom + VisualStudio template
 # ============================================
 
 # Environment files (contain secrets)
@@ -13,10 +14,26 @@
 backend/LaCabrera.Api/bin/
 backend/LaCabrera.Api/obj/
 backend/LaCabrera.Api/logs/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio files
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
+*.rsuser
+.vs/
+
+# NuGet
+*.nupkg
+*.snupkg
 
 # ----------------------------------------
 # Frontend (Node/React)
@@ -25,6 +42,7 @@ frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/*.local
+node_modules/
 
 # ----------------------------------------
 # IDE
@@ -56,6 +74,7 @@ npm-debug.log*
 *.bak
 *.mdf
 *.ldf
+*.ndf
 
 # ----------------------------------------
 # Docker
