@@ -418,6 +418,17 @@ public class DashboardFilters
     /// Meal period filter for shift analysis
     /// </summary>
     public string? MealPeriod { get; set; }
+
+    // v1.3: Bidirectional filtering for ClockChart
+    /// <summary>
+    /// Filter by specific product (for bidirectional filtering)
+    /// </summary>
+    public int? ProductoId { get; set; }
+
+    /// <summary>
+    /// Filter by specific hour (0-23) for bidirectional filtering
+    /// </summary>
+    public int? Hora { get; set; }
 }
 
 public class FranquiciaUpdateDto
@@ -893,6 +904,33 @@ public class TransaccionDetalleDto
 
     [JsonPropertyName("notas")]
     public string? Notas { get; set; }
+}
+
+/// <summary>
+/// DTO para ventas agrupadas por hora del día
+/// </summary>
+public class VentasPorHoraDto
+{
+    [JsonPropertyName("hora")]
+    public int Hora { get; set; }
+
+    [JsonPropertyName("franquicia_id")]
+    public int? FranquiciaId { get; set; }
+
+    [JsonPropertyName("franquicia_nombre")]
+    public string? FranquiciaNombre { get; set; }
+
+    [JsonPropertyName("cubiertos")]
+    public int Cubiertos { get; set; }
+
+    [JsonPropertyName("tickets")]
+    public int Tickets { get; set; }
+
+    [JsonPropertyName("venta_neta")]
+    public decimal VentaNeta { get; set; }
+
+    [JsonPropertyName("venta_neta_usd")]
+    public decimal VentaNetaUsd { get; set; }
 }
 
 #endregion

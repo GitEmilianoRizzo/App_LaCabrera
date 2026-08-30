@@ -16,6 +16,8 @@ import type {
   DiaRanking,
   VentasDelDia,
   ComparativoMensual,
+  // v1.3 types
+  VentasPorHora,
   // Transacciones
   Transaccion,
   TransaccionDetalle,
@@ -361,6 +363,9 @@ function buildQueryStringV2(filters?: DashboardFilters): string {
   if (filters.mealPeriod) params.append('mealPeriod', filters.mealPeriod)
   if (filters.anio) params.append('anio', filters.anio.toString())
   if (filters.mes) params.append('mes', filters.mes.toString())
+  // v1.3: Bidirectional filtering
+  if (filters.productoId) params.append('productoId', filters.productoId.toString())
+  if (filters.hora !== undefined && filters.hora !== null) params.append('hora', filters.hora.toString())
 
   const queryString = params.toString()
   return queryString ? `?${queryString}` : ''
@@ -408,6 +413,13 @@ export const dashboardApiV2 = {
   async getComparativoMensual(filters?: DashboardFilters): Promise<ComparativoMensual[]> {
     const query = buildQueryStringV2(filters)
     const response = await apiClient.get<ComparativoMensual[]>(`/dashboard/v2/ventas/comparativo-mensual${query}`)
+    return response.data
+  },
+
+  // v1.3: Ventas por hora (ClockChart)
+  async getVentasPorHora(filters?: DashboardFilters): Promise<VentasPorHora[]> {
+    const query = buildQueryStringV2(filters)
+    const response = await apiClient.get<VentasPorHora[]>(`/dashboard/v2/ventas/por-hora${query}`)
     return response.data
   },
 }

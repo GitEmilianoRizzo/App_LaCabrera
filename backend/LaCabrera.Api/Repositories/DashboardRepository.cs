@@ -26,6 +26,9 @@ public interface IDashboardRepository
     // Tickets / Transacciones
     Task<IEnumerable<TransaccionDto>> GetTransaccionesByFranquiciaAsync(int franquiciaId, DateTime fechaDesde, DateTime fechaHasta);
     Task<IEnumerable<TransaccionDetalleDto>> GetTransaccionDetalleAsync(long ticketId);
+
+    // v1.3: Hourly consumption (ClockChart)
+    Task<IEnumerable<VentasPorHoraDto>> GetVentasPorHoraAsync(DashboardFilters filters);
 }
 
 public class DashboardRepository : IDashboardRepository
@@ -958,6 +961,79 @@ public class DashboardRepository : IDashboardRepository
             ORDER BY vtd.VentaTicketDetalleId";
 
         return await connection.QueryAsync<TransaccionDetalleDto>(sql, new { TicketId = ticketId });
+    }
+
+    #endregion
+
+    #region Ventas por Hora
+
+    public async Task<IEnumerable<VentasPorHoraDto>> GetVentasPorHoraAsync(DashboardFilters filters)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        // Query simplificado que agrupa por hora de apertura del ticket
+        var sql = @"
+            WITH TicketsConHora AS (
+                SELECT
+                    DATEPART(HOUR, vt.FechaApertura) AS Hora,
+                    vt.FranquiciaId,
+                    f.Nombre AS FranquiciaNombre,
+                    ISNULL(vt.CantidadCubiertos, 0) AS Cubiertos,
+                    vt.ImporteNeto AS VentaNeta,
+                    m.CodigoISO AS MonedaCodigo,
+                    vt.FechaNegocio
+                FROM fact.VentaTicket vt
+                INNER JOIN dim.Franquicia f ON vt.FranquiciaId = f.FranquiciaId
+                LEFT JOIN dim.Moneda m ON f.MonedaId = m.MonedaId
+                WHERE vt.EstaAnulado = 0
+                  AND vt.FechaApertura IS NOT NULL";
+
+        var parameters = new DynamicParameters();
+
+        if (filters.FechaDesde.HasValue)
+        {
+            sql += " AND vt.FechaNegocio >= @FechaDesde";
+            parameters.Add("FechaDesde", filters.FechaDesde.Value);
+        }
+
+        if (filters.FechaHasta.HasValue)
+        {
+            sql += " AND vt.FechaNegocio <= @FechaHasta";
+            parameters.Add("FechaHasta", filters.FechaHasta.Value);
+        }
+
+        if (filters.FranquiciaId.HasValue)
+        {
+            sql += " AND vt.FranquiciaId = @FranquiciaId";
+            parameters.Add("FranquiciaId", filters.FranquiciaId.Value);
+        }
+
+        sql += @"
+            )
+            SELECT
+                t.Hora,
+                t.FranquiciaId,
+                t.FranquiciaNombre,
+                SUM(t.Cubiertos) AS Cubiertos,
+                COUNT(*) AS Tickets,
+                SUM(t.VentaNeta) AS VentaNeta,
+                SUM(
+                    CASE
+                        WHEN t.MonedaCodigo = 'USD' THEN t.VentaNeta
+                        ELSE t.VentaNeta / ISNULL(tc.UnidadesPorUsd, 1)
+                    END
+                ) AS VentaNetaUsd
+            FROM TicketsConHora t
+            OUTER APPLY (
+                SELECT TOP 1 tc2.UnidadesPorUsd
+                FROM dim.TipoCambio tc2
+                WHERE tc2.CodigoMoneda = t.MonedaCodigo AND tc2.Fecha <= t.FechaNegocio
+                ORDER BY tc2.Fecha DESC
+            ) tc
+            GROUP BY t.Hora, t.FranquiciaId, t.FranquiciaNombre
+            ORDER BY t.Hora";
+
+        return await connection.QueryAsync<VentasPorHoraDto>(sql, parameters);
     }
 
     #endregion

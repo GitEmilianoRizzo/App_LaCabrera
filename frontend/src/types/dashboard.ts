@@ -169,6 +169,9 @@ export interface DashboardFilters {
   mealPeriod?: string
   anio?: number
   mes?: number
+  // v1.3: Bidirectional filtering for ClockChart
+  productoId?: number
+  hora?: number
 }
 
 // v1.2 Types - Consolidated USD views and tax separation
@@ -309,6 +312,17 @@ export interface TransaccionDetalle {
   importe_neto: number
   esta_anulado: boolean
   notas: string | null
+}
+
+// v1.3: Hourly consumption (ClockChart)
+export interface VentasPorHora {
+  hora: number
+  franquicia_id: number | null
+  franquicia_nombre: string | null
+  cubiertos: number
+  tickets: number
+  venta_neta: number
+  venta_neta_usd: number | null
 }
 
 // Agregados para graficos

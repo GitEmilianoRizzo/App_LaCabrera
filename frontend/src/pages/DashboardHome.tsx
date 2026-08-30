@@ -3,6 +3,7 @@ import { DollarSign, Ticket, Users, TrendingUp, Info } from 'lucide-react'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { SalesLineChart, MetricOption } from '@/components/charts/SalesLineChart'
 import { HorizontalBarChart } from '@/components/charts/HorizontalBarChart'
+import { ClockChart } from '@/components/charts/ClockChart'
 import { LoadingPage } from '@/components/dashboard/LoadingState'
 import { ErrorBanner } from '@/components/dashboard/ErrorState'
 import { FilterBar, FilterValues } from '@/components/dashboard/FilterBar'
@@ -14,6 +15,7 @@ import {
   useVentasResumen,
   useVentasPorTipoPlato,
   useVentasPorProducto,
+  useVentasPorHora,
 } from '@/hooks/useDashboard'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
@@ -61,6 +63,8 @@ export function DashboardHome() {
   const [selectedTipoPlato, setSelectedTipoPlato] = useState<string | null>(null)
   // Estado para el modal de detalle de franquicia
   const [selectedFranquicia, setSelectedFranquicia] = useState<FranquiciaModalData | null>(null)
+  // v1.3: Hora seleccionada para filtrado bidireccional (ClockChart)
+  const [selectedHour, setSelectedHour] = useState<number | null>(null)
 
   // Filtros - por defecto último mes hasta hoy
   const getDefaultDates = () => {
@@ -93,6 +97,8 @@ export function DashboardHome() {
   const { data: ventasResumen } = useVentasResumen(apiFilters)
   const { data: ventasPorTipo } = useVentasPorTipoPlato(apiFilters)
   const { data: ventasPorProducto } = useVentasPorProducto(apiFilters)
+  // v1.3: Datos para ClockChart
+  const { data: ventasPorHora } = useVentasPorHora(apiFilters)
   const { modalState, closeModal } = useDetailModal()
 
   // Calcular dias en el rango
@@ -603,19 +609,50 @@ export function DashboardHome() {
       }))
   }, [ventasPorProducto, selectedTipoPlato, selectedFranquiciaChart])
 
+  // v1.3: Preparar datos para ClockChart (agregados por hora)
+  const clockChartData = useMemo(() => {
+    if (!ventasPorHora) return []
+
+    // Filtrar por franquicia si hay selección
+    let data = ventasPorHora
+    if (selectedFranquiciaChart) {
+      data = data.filter(h => h.franquicia_nombre === selectedFranquiciaChart)
+    }
+
+    // Agrupar por hora (sumando todas las franquicias si no hay filtro)
+    const byHour = data.reduce((acc, item) => {
+      const hora = item.hora
+      if (!acc[hora]) {
+        acc[hora] = { hora, cubiertos: 0, tickets: 0, venta: 0 }
+      }
+      acc[hora].cubiertos += item.cubiertos || 0
+      acc[hora].tickets += item.tickets || 0
+      acc[hora].venta += item.venta_neta || 0
+      return acc
+    }, {} as Record<number, { hora: number; cubiertos: number; tickets: number; venta: number }>)
+
+    return Object.values(byHour)
+  }, [ventasPorHora, selectedFranquiciaChart])
+
   // Handler para selección de franquicia en el gráfico
   const handleFranquiciaChartClick = (item: { name: string } | null) => {
     const newValue = item?.name || null
     setSelectedFranquiciaChart(newValue)
-    // Resetear tipo de plato cuando cambia la franquicia
+    // Resetear tipo de plato y hora cuando cambia la franquicia
     if (newValue !== selectedFranquiciaChart) {
       setSelectedTipoPlato(null)
+      setSelectedHour(null)
     }
   }
 
   // Handler para selección de tipo de plato
   const handleTipoPlatoClick = (item: { name: string } | null) => {
     setSelectedTipoPlato(item?.name || null)
+  }
+
+  // v1.3: Handler para selección de hora en ClockChart
+  const handleHourClick = (hour: number | null) => {
+    setSelectedHour(hour)
   }
 
   // Handler para click en fila de franquicia
@@ -729,7 +766,7 @@ export function DashboardHome() {
       />
 
       {/* Indicador de filtros activos - más visible */}
-      {(selectedFranquiciaChart || selectedTipoPlato) && (
+      {(selectedFranquiciaChart || selectedTipoPlato || selectedHour !== null) && (
         <div className="flex items-center gap-4 flex-wrap p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <span className="text-base font-medium text-blue-800 dark:text-blue-200">Filtros activos:</span>
           {selectedFranquiciaChart && (
@@ -737,6 +774,7 @@ export function DashboardHome() {
               onClick={() => {
                 setSelectedFranquiciaChart(null)
                 setSelectedTipoPlato(null)
+                setSelectedHour(null)
               }}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-100 rounded-lg text-base font-medium hover:bg-blue-300 dark:hover:bg-blue-700"
             >
@@ -753,10 +791,20 @@ export function DashboardHome() {
               <span className="text-lg font-bold">×</span>
             </button>
           )}
+          {selectedHour !== null && (
+            <button
+              onClick={() => setSelectedHour(null)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-100 rounded-lg text-base font-medium hover:bg-amber-300 dark:hover:bg-amber-700"
+            >
+              Hora: {selectedHour}:00
+              <span className="text-lg font-bold">×</span>
+            </button>
+          )}
           <button
             onClick={() => {
               setSelectedFranquiciaChart(null)
               setSelectedTipoPlato(null)
+              setSelectedHour(null)
             }}
             className="text-base font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline ml-auto"
           >
@@ -786,7 +834,7 @@ export function DashboardHome() {
         />
       </div>
 
-      {/* Segunda fila: Top Productos a ancho completo */}
+      {/* Segunda fila: Top Productos */}
       <HorizontalBarChart
         title={
           selectedTipoPlato
@@ -796,13 +844,23 @@ export function DashboardHome() {
               : "Top 10 Productos"
         }
         subtitle={
-          selectedTipoPlato || selectedFranquiciaChart
+          selectedTipoPlato || selectedFranquiciaChart || selectedHour !== null
             ? "Filtrado por selección activa"
             : "Todos los productos de todas las franquicias"
         }
         data={top10ProductosData}
         showPercent={true}
         maxBars={10}
+      />
+
+      {/* Tercera fila: ClockChart (Consumo por Hora) - Dos relojes AM/PM */}
+      <ClockChart
+        title={selectedFranquiciaChart ? `Consumo por Hora - ${selectedFranquiciaChart}` : "Consumo por Hora"}
+        subtitle="Toque un segmento para filtrar por hora"
+        data={clockChartData}
+        selectedHour={selectedHour}
+        onHourClick={handleHourClick}
+        metric="cubiertos"
       />
 
       {/* Gráfico de Tendencia - Al final del dashboard */}

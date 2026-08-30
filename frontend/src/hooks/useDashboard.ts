@@ -110,6 +110,7 @@ import type {
   DiaRanking,
   VentasDelDia,
   ComparativoMensual,
+  VentasPorHora,
 } from '@/types/dashboard'
 
 export function useVentasConsolidadas(filters?: DashboardFilters): UseDataResult<VentasConsolidadas[]> {
@@ -151,5 +152,13 @@ export function useComparativoMensual(filters?: DashboardFilters): UseDataResult
   return useApiData(
     () => dashboardApiV2.getComparativoMensual(filters),
     [filters?.franquiciaId, filters?.anio, filters?.mes]
+  )
+}
+
+// v1.3: ClockChart hourly consumption
+export function useVentasPorHora(filters?: DashboardFilters): UseDataResult<VentasPorHora[]> {
+  return useApiData(
+    () => dashboardApiV2.getVentasPorHora(filters),
+    [filters?.franquiciaId, filters?.fechaDesde, filters?.fechaHasta, filters?.productoId, filters?.hora]
   )
 }

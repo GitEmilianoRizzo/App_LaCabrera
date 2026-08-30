@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import { X, Calendar, DollarSign, Ticket, Users, TrendingUp, MapPin, Building, ChevronDown, ChevronRight, Loader2, Clock, User, Hash } from 'lucide-react'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { transaccionesApi } from '@/services/api'
@@ -281,9 +281,8 @@ export function FranquiciaDetailModal({
                   </thead>
                   <tbody>
                     {transacciones.map((tx) => (
-                      <>
+                      <Fragment key={tx.ticket_id}>
                         <tr
-                          key={tx.ticket_id}
                           className="border-t dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                           onClick={() => toggleTicketDetalle(tx.ticket_id)}
                         >
@@ -327,7 +326,7 @@ export function FranquiciaDetailModal({
                         </tr>
                         {/* Detalle expandido */}
                         {expandedTicket === tx.ticket_id && (
-                          <tr key={`${tx.ticket_id}-detail`}>
+                          <tr>
                             <td colSpan={9} className="bg-blue-50 dark:bg-blue-900/20 px-6 py-4">
                               {loadingDetalle === tx.ticket_id ? (
                                 <div className="flex items-center justify-center py-4">
@@ -406,7 +405,7 @@ export function FranquiciaDetailModal({
                             </td>
                           </tr>
                         )}
-                      </>
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>

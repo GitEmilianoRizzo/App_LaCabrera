@@ -307,6 +307,32 @@ public class DashboardController : ControllerBase
         return Ok(data);
     }
 
+    /// <summary>
+    /// Obtiene ventas agrupadas por hora del día
+    /// </summary>
+    [HttpGet("v2/ventas/por-hora")]
+    [SwaggerOperation(Summary = "Ventas por hora", Description = "Distribución de ventas/cubiertos por hora del día (0-23) para visualización tipo reloj")]
+    [SwaggerResponse(200, "Ventas por hora", typeof(IEnumerable<VentasPorHoraDto>))]
+    public async Task<ActionResult<IEnumerable<VentasPorHoraDto>>> GetVentasPorHora(
+        [FromQuery] int? franquiciaId,
+        [FromQuery] DateTime? fechaDesde,
+        [FromQuery] DateTime? fechaHasta,
+        [FromQuery] int? productoId,
+        [FromQuery] string? mealPeriod)
+    {
+        var filters = new DashboardFilters
+        {
+            FranquiciaId = franquiciaId,
+            FechaDesde = fechaDesde,
+            FechaHasta = fechaHasta,
+            ProductoId = productoId,
+            MealPeriod = mealPeriod
+        };
+
+        var data = await _dashboardService.GetVentasPorHoraAsync(filters);
+        return Ok(data);
+    }
+
     #endregion
 
     #region Tickets / Transacciones
