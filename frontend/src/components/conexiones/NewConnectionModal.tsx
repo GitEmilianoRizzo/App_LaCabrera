@@ -25,6 +25,7 @@ import {
   Building2,
   Plus,
   Search,
+  Upload,
 } from 'lucide-react'
 
 interface Franquicia {
@@ -61,13 +62,20 @@ export interface NewConnectionData {
   modo: 'PULL' | 'PUSH' | 'AGENT' | 'FILE'
   timezone: string
   moneda: string
-  connection_type: 'API_REST' | 'CLOUD_FILE'
+  connection_type: 'API_REST' | 'CLOUD_FILE' | 'TXT_PARSER'
+  parser_code?: string
 }
 
 const CONECTORES = [
-  { id: 'AGORA_POS', label: 'Agora POS', description: 'Sistema POS Agora (REST API)' },
-  { id: 'GENERIC_JSON', label: 'JSON Generico', description: 'Archivo JSON en formato LA CABRERA' },
-  { id: 'CUSTOM_API', label: 'API Personalizada', description: 'API REST con formato custom' },
+  { id: 'AGORA_POS', label: 'Agora POS', description: 'Sistema POS Agora (REST API)', icon: 'globe' },
+  { id: 'GENERIC_JSON', label: 'JSON Generico', description: 'Archivo JSON en formato LA CABRERA', icon: 'file' },
+  { id: 'FILE_UPLOAD', label: 'Subir Archivo', description: 'Subir archivos HTML, CSV o TXT para parsear', icon: 'upload' },
+  { id: 'CUSTOM_API', label: 'API Personalizada', description: 'API REST con formato custom', icon: 'globe' },
+]
+
+const PARSERS = [
+  { code: 'TOAST_HTML', name: 'Toast HTML', description: 'Exportacion HTML de Toast POS', extensions: '.html, .htm' },
+  { code: 'TOAST_PARSER', name: 'Toast TXT', description: 'Reporte de texto de Toast POS', extensions: '.txt' },
 ]
 
 const MODOS = [
@@ -79,6 +87,7 @@ const MODOS = [
 const TIMEZONES = [
   { id: 'Europe/Madrid', label: 'Madrid (CET/CEST)' },
   { id: 'America/Argentina/Buenos_Aires', label: 'Buenos Aires (ART)' },
+  { id: 'America/New_York', label: 'New York / Miami (EST)' },
   { id: 'America/Santiago', label: 'Santiago (CLT)' },
   { id: 'America/Sao_Paulo', label: 'Sao Paulo (BRT)' },
   { id: 'America/Mexico_City', label: 'Mexico City (CST)' },
@@ -129,7 +138,8 @@ export function NewConnectionModal({
   const [nombre, setNombre] = useState('')
   const [tipoConector, setTipoConector] = useState('AGORA_POS')
   const [modo, setModo] = useState<'PULL' | 'PUSH' | 'AGENT' | 'FILE'>('PULL')
-  const [connectionType, setConnectionType] = useState<'API_REST' | 'CLOUD_FILE'>('API_REST')
+  const [connectionType, setConnectionType] = useState<'API_REST' | 'CLOUD_FILE' | 'TXT_PARSER'>('API_REST')
+  const [parserCode, setParserCode] = useState('TOAST_HTML')
 
   // Timezone y Moneda para conexion (editables)
   const [conexionTimezone, setConexionTimezone] = useState('Europe/Madrid')
@@ -193,6 +203,7 @@ export function NewConnectionModal({
       setTipoConector('AGORA_POS')
       setModo('PULL')
       setConnectionType('API_REST')
+      setParserCode('TOAST_HTML')
       setConexionTimezone('Europe/Madrid')
       setConexionMoneda('EUR')
     }
@@ -231,11 +242,12 @@ export function NewConnectionModal({
           timezone: franquiciaTimezone,
           moneda: franquiciaMoneda,
         } : undefined,
-        tipo_conector: tipoConector,
+        tipo_conector: tipoConector === 'FILE_UPLOAD' ? 'FILE_PARSER' : tipoConector,
         modo,
         timezone: crearNuevaFranquicia ? franquiciaTimezone : conexionTimezone,
         moneda: crearNuevaFranquicia ? franquiciaMoneda : conexionMoneda,
         connection_type: connectionType,
+        parser_code: tipoConector === 'FILE_UPLOAD' ? parserCode : undefined,
       })
       onOpenChange(false)
     } finally {
@@ -486,13 +498,26 @@ export function NewConnectionModal({
                     <button
                       key={conector.id}
                       type="button"
-                      onClick={() => setTipoConector(conector.id)}
+                      onClick={() => {
+                        setTipoConector(conector.id)
+                        if (conector.id === 'FILE_UPLOAD') {
+                          setModo('FILE')
+                          setConnectionType('TXT_PARSER')
+                        }
+                      }}
                       className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
                         tipoConector === conector.id
                           ? 'border-cabrera-burgundy bg-cabrera-burgundy/5'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                       }`}
                     >
+                      {conector.icon === 'upload' ? (
+                        <Upload className={`w-5 h-5 ${tipoConector === conector.id ? 'text-cabrera-burgundy' : 'text-gray-400'}`} />
+                      ) : conector.icon === 'file' ? (
+                        <FileJson className={`w-5 h-5 ${tipoConector === conector.id ? 'text-cabrera-burgundy' : 'text-gray-400'}`} />
+                      ) : (
+                        <Globe className={`w-5 h-5 ${tipoConector === conector.id ? 'text-cabrera-burgundy' : 'text-gray-400'}`} />
+                      )}
                       <div>
                         <p className="font-medium">{conector.label}</p>
                         <p className="text-xs text-muted-foreground">{conector.description}</p>
@@ -502,36 +527,66 @@ export function NewConnectionModal({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Modo de Conexion</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {MODOS.map(m => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => {
-                        setModo(m.id as typeof modo)
-                        setConnectionType(m.id === 'FILE' ? 'CLOUD_FILE' : 'API_REST')
-                      }}
-                      className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
-                        modo === m.id
-                          ? 'border-cabrera-burgundy bg-cabrera-burgundy/5'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      {m.id === 'FILE' ? (
-                        <FileJson className={`w-5 h-5 ${modo === m.id ? 'text-cabrera-burgundy' : 'text-gray-400'}`} />
-                      ) : (
-                        <Globe className={`w-5 h-5 ${modo === m.id ? 'text-cabrera-burgundy' : 'text-gray-400'}`} />
-                      )}
-                      <div>
-                        <p className="font-medium text-sm">{m.label}</p>
-                        <p className="text-xs text-muted-foreground">{m.description}</p>
-                      </div>
-                    </button>
-                  ))}
+              {/* Parser selector - only for FILE_UPLOAD */}
+              {tipoConector === 'FILE_UPLOAD' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tipo de Parser</label>
+                  <div className="grid grid-cols-1 gap-2">
+                    {PARSERS.map(parser => (
+                      <button
+                        key={parser.code}
+                        type="button"
+                        onClick={() => setParserCode(parser.code)}
+                        className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                          parserCode === parser.code
+                            ? 'border-cabrera-burgundy bg-cabrera-burgundy/5'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex-1">
+                          <p className="font-medium">{parser.name}</p>
+                          <p className="text-xs text-muted-foreground">{parser.description}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">{parser.extensions}</Badge>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Modo de Conexion - hide for FILE_UPLOAD since it's automatic */}
+              {tipoConector !== 'FILE_UPLOAD' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Modo de Conexion</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {MODOS.map(m => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          setModo(m.id as typeof modo)
+                          setConnectionType(m.id === 'FILE' ? 'CLOUD_FILE' : 'API_REST')
+                        }}
+                        className={`flex items-center gap-3 p-3 rounded-lg border text-left transition-all ${
+                          modo === m.id
+                            ? 'border-cabrera-burgundy bg-cabrera-burgundy/5'
+                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        {m.id === 'FILE' ? (
+                          <FileJson className={`w-5 h-5 ${modo === m.id ? 'text-cabrera-burgundy' : 'text-gray-400'}`} />
+                        ) : (
+                          <Globe className={`w-5 h-5 ${modo === m.id ? 'text-cabrera-burgundy' : 'text-gray-400'}`} />
+                        )}
+                        <div>
+                          <p className="font-medium text-sm">{m.label}</p>
+                          <p className="text-xs text-muted-foreground">{m.description}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Timezone y Moneda (solo para franquicia existente) */}
               {!crearNuevaFranquicia && (

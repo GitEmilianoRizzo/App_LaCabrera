@@ -25,6 +25,8 @@ public interface IDashboardService
     // Tickets / Transacciones
     Task<IEnumerable<TransaccionDto>> GetTransaccionesByFranquiciaAsync(int franquiciaId, DateTime fechaDesde, DateTime fechaHasta);
     Task<IEnumerable<TransaccionDetalleDto>> GetTransaccionDetalleAsync(long ticketId);
+    Task<IEnumerable<TransaccionExportDto>> GetTransaccionesExportAsync(DashboardFilters filters);
+    Task<IEnumerable<TransaccionItemExportDto>> GetTransaccionesItemsExportAsync(DashboardFilters filters);
 
     // v1.3: Hourly consumption (ClockChart)
     Task<IEnumerable<VentasPorHoraDto>> GetVentasPorHoraAsync(DashboardFilters filters);
@@ -123,6 +125,16 @@ public class DashboardService : IDashboardService
     public async Task<IEnumerable<TransaccionDetalleDto>> GetTransaccionDetalleAsync(long ticketId)
     {
         return await _dashboardRepository.GetTransaccionDetalleAsync(ticketId);
+    }
+
+    public async Task<IEnumerable<TransaccionExportDto>> GetTransaccionesExportAsync(DashboardFilters filters)
+    {
+        return await _dashboardRepository.GetTransaccionesExportAsync(filters);
+    }
+
+    public async Task<IEnumerable<TransaccionItemExportDto>> GetTransaccionesItemsExportAsync(DashboardFilters filters)
+    {
+        return await _dashboardRepository.GetTransaccionesItemsExportAsync(filters);
     }
 
     #endregion

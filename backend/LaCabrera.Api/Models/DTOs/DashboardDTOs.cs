@@ -933,4 +933,98 @@ public class VentasPorHoraDto
     public decimal VentaNetaUsd { get; set; }
 }
 
+/// <summary>
+/// DTO para exportación de transacciones con tipo de cambio
+/// </summary>
+public class TransaccionExportDto
+{
+    public long TicketId { get; set; }
+    public string NumeroTicket { get; set; } = string.Empty;
+    public DateTime FechaNegocio { get; set; }
+    public DateTime FechaApertura { get; set; }
+    public string Estado { get; set; } = string.Empty;
+
+    // Franquicia
+    public string FranquiciaCodigo { get; set; } = string.Empty;
+    public string FranquiciaNombre { get; set; } = string.Empty;
+    public string? Pais { get; set; }
+    public string? Ciudad { get; set; }
+
+    // Mesa y Mozo
+    public string? NumeroMesa { get; set; }
+    public string? AreaMesa { get; set; }
+    public string? NombreMozo { get; set; }
+    public int? CantidadCubiertos { get; set; }
+
+    // Moneda Original
+    public string MonedaCodigo { get; set; } = string.Empty;
+    public decimal ImporteBrutoLocal { get; set; }
+    public decimal ImporteDescuentoLocal { get; set; }
+    public decimal ImporteNetoLocal { get; set; }
+    public decimal ImporteImpuestoLocal { get; set; }
+    public decimal ImportePropinaLocal { get; set; }
+    public decimal ImporteTotalLocal { get; set; }
+
+    // Conversión a USD
+    public decimal TipoCambio { get; set; }
+    public decimal ImporteBrutoUsd { get; set; }
+    public decimal ImporteDescuentoUsd { get; set; }
+    public decimal ImporteNetoUsd { get; set; }
+    public decimal ImporteImpuestoUsd { get; set; }
+    public decimal ImportePropinaUsd { get; set; }
+    public decimal ImporteTotalUsd { get; set; }
+
+    // Calidad de datos
+    public string CalidadTipoCambio { get; set; } = string.Empty; // OK, FALLBACK, SIN_TASA
+}
+
+/// <summary>
+/// DTO para exportación de items/líneas de transacción con contexto del ticket
+/// </summary>
+public class TransaccionItemExportDto
+{
+    // Ticket Header
+    public long TicketId { get; set; }
+    public string NumeroTicket { get; set; } = string.Empty;
+    public DateTime FechaNegocio { get; set; }
+    public DateTime? FechaApertura { get; set; }
+    public string? PeriodoComida { get; set; }
+
+    // Franquicia
+    public string FranquiciaCodigo { get; set; } = string.Empty;
+    public string FranquiciaNombre { get; set; } = string.Empty;
+    public string? Pais { get; set; }
+    public string? Ciudad { get; set; }
+
+    // Mesa y Mozo
+    public string? NumeroMesa { get; set; }
+    public string? AreaMesa { get; set; }
+    public string? NombreMozo { get; set; }
+
+    // Item Details
+    public long DetalleId { get; set; }
+    public string CodigoProducto { get; set; } = string.Empty;
+    public string NombreProducto { get; set; } = string.Empty;
+    public string? Categoria { get; set; }
+    public string? Familia { get; set; }
+    public decimal Cantidad { get; set; }
+    public decimal PrecioUnitario { get; set; }
+
+    // Importes en moneda local
+    public string MonedaCodigo { get; set; } = string.Empty;
+    public decimal ImporteBrutoLocal { get; set; }
+    public decimal ImporteDescuentoLocal { get; set; }
+    public decimal ImporteNetoLocal { get; set; }
+
+    // Conversión a USD
+    public decimal TipoCambio { get; set; }
+    public decimal ImporteBrutoUsd { get; set; }
+    public decimal ImporteDescuentoUsd { get; set; }
+    public decimal ImporteNetoUsd { get; set; }
+
+    // Metadata
+    public bool EstaAnulado { get; set; }
+    public string? Notas { get; set; }
+}
+
 #endregion

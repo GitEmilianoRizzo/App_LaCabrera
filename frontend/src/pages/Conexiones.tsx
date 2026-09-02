@@ -37,7 +37,7 @@ import { useConexiones, useConexionDetalle, useUpdateNodoEstado } from '@/hooks/
 import { conexionesApi, franquiciasApi } from '@/services/api'
 import type { NodoConexion, EjecucionNodo, MapeoCategoria, MapeoMedioPago, NodoConfiguracion, FieldMapping } from '@/types/conexiones'
 import { CATEGORIAS_PRODUCTO, MEDIOS_PAGO } from '@/types/conexiones'
-import { ConnectionConfigModal, FieldMappingEditor, NewConnectionModal } from '@/components/conexiones'
+import { ConnectionConfigModal, FieldMappingEditor, NewConnectionModal, TxtParserUploadModal } from '@/components/conexiones'
 import type { NewConnectionData } from '@/components/conexiones'
 
 const estadoColors: Record<string, string> = {
@@ -93,6 +93,10 @@ export function Conexiones() {
   const [connectionConfigOpen, setConnectionConfigOpen] = useState(false)
   const [fieldMappingOpen, setFieldMappingOpen] = useState(false)
   const [newConnectionOpen, setNewConnectionOpen] = useState(false)
+
+  // Modal de TXT Parser
+  const [txtParserModalOpen, setTxtParserModalOpen] = useState(false)
+  const [parserNodo, setParserNodo] = useState<NodoConexion | null>(null)
 
   // Lista de franquicias desde la API (todas las disponibles en dim.Franquicia)
   const [franquicias, setFranquicias] = useState<Array<{
@@ -302,6 +306,13 @@ export function Conexiones() {
   }
 
   const handleEjecutarAhora = async (conexion: NodoConexion) => {
+    // Para TXT_PARSER o FILE_PARSER, abrir el modal de upload
+    if (conexion.tipo_conector === 'TXT_PARSER' || conexion.tipo_conector === 'FILE_PARSER') {
+      setParserNodo(conexion)
+      setTxtParserModalOpen(true)
+      return
+    }
+
     setExecutingId(conexion.nodo_conexion_id)
     try {
       const result = await conexionesApi.ejecutarExtraccion(conexion.nodo_conexion_id)
@@ -320,6 +331,14 @@ export function Conexiones() {
     } finally {
       setExecutingId(null)
     }
+  }
+
+  const handleTxtParserComplete = () => {
+    refetch()
+    if (selectedConexionId && parserNodo && selectedConexionId === parserNodo.nodo_conexion_id) {
+      refetchDetalle()
+    }
+    showAlert('success', 'Datos procesados exitosamente')
   }
 
   if (error) {
@@ -512,11 +531,16 @@ export function Conexiones() {
 
                       {/* Acciones */}
                       <div className="flex items-center gap-2">
-                        {conexion.modo === 'PULL' && conexion.estado === 'ACTIVE' && (
+                        {/* Botón Ejecutar: para PULL activo o para FILE_PARSER/TXT_PARSER activo */}
+                        {conexion.estado === 'ACTIVE' && (
+                          conexion.modo === 'PULL' ||
+                          conexion.tipo_conector === 'TXT_PARSER' ||
+                          conexion.tipo_conector === 'FILE_PARSER'
+                        ) && (
                           <Button
                             variant="ghost"
                             size="sm"
-                            title="Ejecutar ahora"
+                            title={conexion.tipo_conector === 'FILE_PARSER' || conexion.tipo_conector === 'TXT_PARSER' ? 'Subir archivo' : 'Ejecutar ahora'}
                             onClick={(e) => {
                               e.stopPropagation()
                               handleEjecutarAhora(conexion)
@@ -949,6 +973,16 @@ export function Conexiones() {
         franquicias={franquicias}
         onSave={handleCreateConnection}
       />
+
+      {/* Modal de TXT Parser Upload */}
+      {parserNodo && (
+        <TxtParserUploadModal
+          open={txtParserModalOpen}
+          onOpenChange={setTxtParserModalOpen}
+          nodo={parserNodo}
+          onComplete={handleTxtParserComplete}
+        />
+      )}
     </div>
   )
 }

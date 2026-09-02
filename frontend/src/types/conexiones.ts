@@ -43,7 +43,10 @@ export interface NodoConexionCreate {
 
 export interface NodoConfiguracion {
   // Tipo de conexion
-  connection_type: 'API_REST' | 'CLOUD_FILE'
+  connection_type: 'API_REST' | 'CLOUD_FILE' | 'TXT_PARSER'
+
+  // Parser code para TXT_PARSER
+  parser_code?: string
 
   // Config para API REST
   api_config?: ApiConnectionConfig
@@ -384,3 +387,65 @@ export const MEDIOS_PAGO = [
 
 export const ESTADOS_NODO = ['ACTIVE', 'PAUSED', 'ERROR', 'PENDING_CONFIG'] as const
 export const MODOS_NODO = ['PULL', 'PUSH', 'AGENT', 'FILE'] as const
+
+// ============================================
+// TXT PARSER TYPES
+// ============================================
+
+export interface Parser {
+  parser_id: number
+  codigo: string
+  nombre: string
+  descripcion: string | null
+  archivo_script: string
+  extensiones_permitidas: string
+  paises_aplica: string | null
+  moneda_default: string
+  timezone_default: string
+  activo: boolean
+}
+
+export interface ParsePreview {
+  franchise_code: string | null
+  franchise_name: string | null
+  business_date: string | null
+  ticket_count: number
+  net_sales_amount: number
+  tax_amount: number
+  currency: string
+}
+
+export interface ParseFileResult {
+  success: boolean
+  filename: string
+  preview: ParsePreview | null
+  data: unknown
+  error: string | null
+}
+
+export interface ParseBatchResult {
+  total_files: number
+  successful: number
+  failed: number
+  results: ParseFileResult[]
+}
+
+export interface IngestFileDto {
+  filename: string
+  data: unknown
+}
+
+export interface IngestResult {
+  success: boolean
+  filename: string
+  batch_id: string | null
+  tickets_processed: number
+  error: string | null
+}
+
+export interface IngestBatchResult {
+  total_files: number
+  successful: number
+  failed: number
+  results: IngestResult[]
+}

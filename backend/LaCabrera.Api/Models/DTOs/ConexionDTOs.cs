@@ -127,6 +127,9 @@ public class NodoConfiguracionDto
     [JsonPropertyName("connection")]
     public ConnectionConfigDto? Connection { get; set; }
 
+    [JsonPropertyName("parser_code")]
+    public string? ParserCode { get; set; }
+
     [JsonPropertyName("export_filter")]
     public string? ExportFilter { get; set; }
 

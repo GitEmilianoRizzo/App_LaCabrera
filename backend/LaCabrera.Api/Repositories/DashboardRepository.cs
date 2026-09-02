@@ -26,6 +26,8 @@ public interface IDashboardRepository
     // Tickets / Transacciones
     Task<IEnumerable<TransaccionDto>> GetTransaccionesByFranquiciaAsync(int franquiciaId, DateTime fechaDesde, DateTime fechaHasta);
     Task<IEnumerable<TransaccionDetalleDto>> GetTransaccionDetalleAsync(long ticketId);
+    Task<IEnumerable<TransaccionExportDto>> GetTransaccionesExportAsync(DashboardFilters filters);
+    Task<IEnumerable<TransaccionItemExportDto>> GetTransaccionesItemsExportAsync(DashboardFilters filters);
 
     // v1.3: Hourly consumption (ClockChart)
     Task<IEnumerable<VentasPorHoraDto>> GetVentasPorHoraAsync(DashboardFilters filters);
@@ -961,6 +963,201 @@ public class DashboardRepository : IDashboardRepository
             ORDER BY vtd.VentaTicketDetalleId";
 
         return await connection.QueryAsync<TransaccionDetalleDto>(sql, new { TicketId = ticketId });
+    }
+
+    public async Task<IEnumerable<TransaccionExportDto>> GetTransaccionesExportAsync(DashboardFilters filters)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        var fechaHasta = filters.FechaHasta ?? DateTime.Today;
+        var fechaDesde = filters.FechaDesde ?? fechaHasta.AddMonths(-1);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("FechaDesde", fechaDesde);
+        parameters.Add("FechaHasta", fechaHasta);
+
+        var whereClause = "WHERE vt.FechaNegocio BETWEEN @FechaDesde AND @FechaHasta AND vt.EstaAnulado = 0";
+
+        if (filters.FranquiciaId.HasValue)
+        {
+            whereClause += " AND f.FranquiciaId = @FranquiciaId";
+            parameters.Add("FranquiciaId", filters.FranquiciaId);
+        }
+
+        if (!string.IsNullOrEmpty(filters.Pais))
+        {
+            whereClause += " AND f.Pais = @Pais";
+            parameters.Add("Pais", filters.Pais);
+        }
+
+        var sql = $@"
+            SELECT
+                vt.VentaTicketId AS TicketId,
+                vt.NumeroTicket,
+                vt.FechaNegocio,
+                vt.FechaApertura,
+                vt.Estado,
+                f.Codigo AS FranquiciaCodigo,
+                f.Nombre AS FranquiciaNombre,
+                f.Pais,
+                f.Ciudad,
+                vt.NumeroMesa,
+                vt.AreaMesa,
+                vt.NombreMozo,
+                vt.CantidadCubiertos,
+                m.CodigoISO AS MonedaCodigo,
+                -- Importes en moneda local
+                vt.ImporteBruto AS ImporteBrutoLocal,
+                vt.ImporteDescuento AS ImporteDescuentoLocal,
+                vt.ImporteNeto AS ImporteNetoLocal,
+                vt.ImporteImpuesto AS ImporteImpuestoLocal,
+                vt.ImportePropina AS ImportePropinaLocal,
+                vt.ImporteTotalPagado AS ImporteTotalLocal,
+                -- Tipo de cambio (UnidadesPorUsd = cuántas unidades de moneda local por 1 USD)
+                COALESCE(tc.UnidadesPorUsd, 1.0) AS TipoCambio,
+                -- Importes en USD (dividir por UnidadesPorUsd)
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteBruto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteBruto / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteBruto
+                END AS ImporteBrutoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteDescuento
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteDescuento / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteDescuento
+                END AS ImporteDescuentoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteNeto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteNeto / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteNeto
+                END AS ImporteNetoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteImpuesto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteImpuesto / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteImpuesto
+                END AS ImporteImpuestoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImportePropina
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImportePropina / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImportePropina
+                END AS ImportePropinaUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteTotalPagado
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteTotalPagado / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteTotalPagado
+                END AS ImporteTotalUsd,
+                -- Calidad del tipo de cambio
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN 'N/A'
+                    WHEN tc.UnidadesPorUsd IS NOT NULL THEN 'OK'
+                    ELSE 'SIN_TASA'
+                END AS CalidadTipoCambio
+            FROM fact.VentaTicket vt
+            INNER JOIN dim.Franquicia f ON vt.FranquiciaId = f.FranquiciaId
+            LEFT JOIN dim.Moneda m ON f.MonedaId = m.MonedaId
+            OUTER APPLY (
+                SELECT TOP 1 tc2.UnidadesPorUsd
+                FROM dim.TipoCambio tc2
+                WHERE tc2.CodigoMoneda = m.CodigoISO
+                  AND tc2.Fecha <= vt.FechaNegocio
+                ORDER BY tc2.Fecha DESC
+            ) tc
+            {whereClause}
+            ORDER BY vt.FechaNegocio DESC, vt.FranquiciaId, vt.VentaTicketId";
+
+        return await connection.QueryAsync<TransaccionExportDto>(sql, parameters);
+    }
+
+    public async Task<IEnumerable<TransaccionItemExportDto>> GetTransaccionesItemsExportAsync(DashboardFilters filters)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        var fechaHasta = filters.FechaHasta ?? DateTime.Today;
+        var fechaDesde = filters.FechaDesde ?? fechaHasta.AddMonths(-1);
+
+        var parameters = new DynamicParameters();
+        parameters.Add("FechaDesde", fechaDesde);
+        parameters.Add("FechaHasta", fechaHasta);
+
+        var whereClause = "WHERE vt.FechaNegocio BETWEEN @FechaDesde AND @FechaHasta AND vt.EstaAnulado = 0";
+
+        if (filters.FranquiciaId.HasValue)
+        {
+            whereClause += " AND f.FranquiciaId = @FranquiciaId";
+            parameters.Add("FranquiciaId", filters.FranquiciaId);
+        }
+
+        if (!string.IsNullOrEmpty(filters.Pais))
+        {
+            whereClause += " AND f.Pais = @Pais";
+            parameters.Add("Pais", filters.Pais);
+        }
+
+        var sql = $@"
+            SELECT
+                -- Ticket Header
+                vt.VentaTicketId AS TicketId,
+                vt.NumeroTicket,
+                vt.FechaNegocio,
+                vt.FechaApertura,
+                vt.PeriodoComida,
+                f.Codigo AS FranquiciaCodigo,
+                f.Nombre AS FranquiciaNombre,
+                f.Pais,
+                f.Ciudad,
+                vt.NumeroMesa,
+                vt.AreaMesa,
+                vt.NombreMozo,
+                -- Item Details
+                vtd.VentaTicketDetalleId AS DetalleId,
+                vtd.CodigoProducto,
+                vtd.NombreProducto,
+                COALESCE(tp.Nombre, vtd.CategoriaProducto, 'SIN_CATEGORIA') AS Categoria,
+                vtd.FamiliaProducto AS Familia,
+                vtd.Cantidad,
+                vtd.PrecioUnitario,
+                -- Importes en moneda local
+                m.CodigoISO AS MonedaCodigo,
+                vtd.ImporteBruto AS ImporteBrutoLocal,
+                vtd.ImporteDescuento AS ImporteDescuentoLocal,
+                vtd.ImporteNeto AS ImporteNetoLocal,
+                -- Tipo de cambio
+                COALESCE(tc.UnidadesPorUsd, 1.0) AS TipoCambio,
+                -- Importes en USD
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vtd.ImporteBruto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vtd.ImporteBruto / tc.UnidadesPorUsd, 2)
+                    ELSE vtd.ImporteBruto
+                END AS ImporteBrutoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vtd.ImporteDescuento
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vtd.ImporteDescuento / tc.UnidadesPorUsd, 2)
+                    ELSE vtd.ImporteDescuento
+                END AS ImporteDescuentoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vtd.ImporteNeto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vtd.ImporteNeto / tc.UnidadesPorUsd, 2)
+                    ELSE vtd.ImporteNeto
+                END AS ImporteNetoUsd,
+                -- Metadata
+                vtd.EstaAnulado,
+                vtd.Notas
+            FROM fact.VentaTicket vt
+            INNER JOIN fact.VentaTicketDetalle vtd ON vt.VentaTicketId = vtd.VentaTicketId
+            INNER JOIN dim.Franquicia f ON vt.FranquiciaId = f.FranquiciaId
+            LEFT JOIN dim.Moneda m ON f.MonedaId = m.MonedaId
+            LEFT JOIN dim.TipoPlato tp ON vtd.TipoPlatoId = tp.TipoPlatoId
+            OUTER APPLY (
+                SELECT TOP 1 tc2.UnidadesPorUsd
+                FROM dim.TipoCambio tc2
+                WHERE tc2.CodigoMoneda = m.CodigoISO
+                  AND tc2.Fecha <= vt.FechaNegocio
+                ORDER BY tc2.Fecha DESC
+            ) tc
+            {whereClause}
+            ORDER BY vt.FechaNegocio DESC, vt.FranquiciaId, vt.VentaTicketId, vtd.VentaTicketDetalleId";
+
+        return await connection.QueryAsync<TransaccionItemExportDto>(sql, parameters);
     }
 
     #endregion

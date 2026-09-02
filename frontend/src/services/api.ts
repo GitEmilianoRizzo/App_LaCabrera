@@ -29,6 +29,10 @@ import type {
   MapeoCategoria,
   MapeoMedioPago,
   FieldMapping,
+  Parser,
+  ParseBatchResult,
+  IngestFileDto,
+  IngestBatchResult,
 } from '@/types/conexiones'
 import type {
   AuthResponse,
@@ -177,6 +181,20 @@ export const dashboardApi = {
     const response = await apiClient.get('/api/health')
     return response.data
   },
+
+  // Exportar transacciones a Excel
+  async exportTransaccionesExcel(params: {
+    fechaDesde: string
+    fechaHasta: string
+    pais?: string
+    franquiciaId?: number
+  }): Promise<Blob> {
+    const query = buildQueryString(params)
+    const response = await apiClient.get(`/dashboard/transacciones/export/excel${query}`, {
+      responseType: 'blob',
+    })
+    return response.data
+  },
 }
 
 // Conexiones API
@@ -258,6 +276,45 @@ export const conexionesApi = {
 
   async getMediosPago(): Promise<string[]> {
     const response = await apiClient.get<string[]>('/conexiones/catalogos/medios-pago')
+    return response.data
+  },
+
+  // TXT Parser endpoints
+  async getParsers(): Promise<Parser[]> {
+    const response = await apiClient.get<Parser[]>('/conexiones/parsers')
+    return response.data
+  },
+
+  async getParserById(parserId: number): Promise<Parser> {
+    const response = await apiClient.get<Parser>(`/conexiones/parsers/${parserId}`)
+    return response.data
+  },
+
+  async parseTxtFiles(nodoId: number, files: File[], parserCode?: string): Promise<ParseBatchResult> {
+    const formData = new FormData()
+    files.forEach(file => {
+      formData.append('files', file)
+    })
+    if (parserCode) {
+      formData.append('parser_code', parserCode)
+    }
+    const response = await apiClient.post<ParseBatchResult>(
+      `/conexiones/${nodoId}/parse-txt`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    )
+    return response.data
+  },
+
+  async ingestParsedFiles(nodoId: number, files: IngestFileDto[]): Promise<IngestBatchResult> {
+    const response = await apiClient.post<IngestBatchResult>(
+      `/conexiones/${nodoId}/ingest-parsed`,
+      { files }
+    )
     return response.data
   },
 }

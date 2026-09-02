@@ -10,6 +10,7 @@ import { FilterBar, FilterValues } from '@/components/dashboard/FilterBar'
 import { DetailModal, useDetailModal } from '@/components/dashboard/DetailModal'
 import { EnhancedDataTable, ColumnDef } from '@/components/dashboard/EnhancedDataTable'
 import { FranquiciaDetailModal } from '@/components/dashboard/FranquiciaDetailModal'
+import { ExportExcelModal } from '@/components/dashboard/ExportExcelModal'
 import {
   useHomeDashboard,
   useVentasResumen,
@@ -65,6 +66,8 @@ export function DashboardHome() {
   const [selectedFranquicia, setSelectedFranquicia] = useState<FranquiciaModalData | null>(null)
   // v1.3: Hora seleccionada para filtrado bidireccional (ClockChart)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
+  // Estado para el modal de exportación Excel
+  const [exportModalOpen, setExportModalOpen] = useState(false)
 
   // Filtros - por defecto último mes hasta hoy
   const getDefaultDates = () => {
@@ -701,6 +704,7 @@ export function DashboardHome() {
         franquicias={franquiciasParaFiltro}
         onFilterChange={setFilters}
         initialFilters={filters}
+        onExportClick={() => setExportModalOpen(true)}
       />
 
       {/* Indicador de Moneda USD */}
@@ -895,6 +899,14 @@ export function DashboardHome() {
         franquicia={selectedFranquicia}
         fechaDesde={filters.fechaDesde}
         fechaHasta={filters.fechaHasta}
+      />
+
+      {/* Modal de Exportación a Excel */}
+      <ExportExcelModal
+        open={exportModalOpen}
+        onOpenChange={setExportModalOpen}
+        filters={filters}
+        franquicias={franquiciasParaFiltro}
       />
     </div>
   )

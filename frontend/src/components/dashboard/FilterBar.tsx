@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Calendar, Filter, X } from 'lucide-react'
+import { Calendar, Filter, X, FileSpreadsheet } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 
@@ -7,6 +7,7 @@ interface FilterBarProps {
   onFilterChange: (filters: FilterValues) => void
   franquicias: { id: number; nombre: string; pais: string }[]
   initialFilters?: Partial<FilterValues>
+  onExportClick?: () => void
 }
 
 export interface FilterValues {
@@ -16,7 +17,7 @@ export interface FilterValues {
   franquiciaId: number | null
 }
 
-export function FilterBar({ onFilterChange, franquicias, initialFilters }: FilterBarProps) {
+export function FilterBar({ onFilterChange, franquicias, initialFilters, onExportClick }: FilterBarProps) {
   const today = new Date()
   const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
 
@@ -117,6 +118,19 @@ export function FilterBar({ onFilterChange, franquicias, initialFilters }: Filte
             >
               <X className="w-4 h-4 mr-1" />
               Limpiar
+            </Button>
+          )}
+
+          {/* Export button */}
+          {onExportClick && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExportClick}
+              className="ml-auto text-green-700 border-green-300 hover:bg-green-50 hover:text-green-800 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/30"
+            >
+              <FileSpreadsheet className="w-4 h-4 mr-1" />
+              Exportar Excel
             </Button>
           )}
         </div>

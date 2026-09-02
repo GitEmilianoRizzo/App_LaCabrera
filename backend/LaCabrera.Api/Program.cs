@@ -56,6 +56,10 @@ builder.Services.AddScoped<IConexionService, ConexionService>();
 builder.Services.AddScoped<IAgoraExtractorService, AgoraExtractorService>();
 builder.Services.AddScoped<IVinsonExtractorService, VinsonExtractorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddHttpClient<ITxtParserService, TxtParserService>(client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(5); // 5 minutes for large file parsing
+});
 
 // Exchange Rate Services (Tipo de Cambio)
 builder.Services.AddHttpClient<BcraExchangeRateProvider>();

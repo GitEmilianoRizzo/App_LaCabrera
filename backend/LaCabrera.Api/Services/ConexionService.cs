@@ -17,6 +17,7 @@ public interface IConexionService
     Task<int> UpsertMapeoCategoriaAsync(MapeoCategoriaDto mapeo);
     Task<int> UpsertMapeoMedioPagoAsync(MapeoMedioPagoDto mapeo);
     Task<int> ResolverValoresYaMapeadosAsync(int nodoConexionId);
+    Task LogEjecucionAsync(int nodoConexionId, DateTime fechaNegocio, string estado, int ticketsProcesados, int lineasProcesadas, int errorsCount, string? batchId, string? mensaje);
 }
 
 public class ConexionService : IConexionService
@@ -161,5 +162,10 @@ public class ConexionService : IConexionService
     public async Task<int> ResolverValoresYaMapeadosAsync(int nodoConexionId)
     {
         return await _conexionRepository.ResolverValoresYaMapeadosAsync(nodoConexionId);
+    }
+
+    public async Task LogEjecucionAsync(int nodoConexionId, DateTime fechaNegocio, string estado, int ticketsProcesados, int lineasProcesadas, int errorsCount, string? batchId, string? mensaje)
+    {
+        await _conexionRepository.LogEjecucionAsync(nodoConexionId, fechaNegocio, estado, ticketsProcesados, lineasProcesadas, errorsCount, batchId, mensaje);
     }
 }

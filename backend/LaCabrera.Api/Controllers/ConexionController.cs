@@ -13,15 +13,21 @@ public class ConexionController : ControllerBase
     private readonly IConexionService _conexionService;
     private readonly IAgoraExtractorService _agoraExtractor;
     private readonly IVinsonExtractorService _vinsonExtractor;
+    private readonly ITxtParserService _txtParserService;
+    private readonly IIngestionService _ingestionService;
 
     public ConexionController(
         IConexionService conexionService,
         IAgoraExtractorService agoraExtractor,
-        IVinsonExtractorService vinsonExtractor)
+        IVinsonExtractorService vinsonExtractor,
+        ITxtParserService txtParserService,
+        IIngestionService ingestionService)
     {
         _conexionService = conexionService;
         _agoraExtractor = agoraExtractor;
         _vinsonExtractor = vinsonExtractor;
+        _txtParserService = txtParserService;
+        _ingestionService = ingestionService;
     }
 
     /// <summary>
@@ -323,5 +329,201 @@ public class ConexionController : ControllerBase
     public ActionResult<string[]> GetMediosPago()
     {
         return Ok(MediosPago.Valores);
+    }
+
+    // ========================================================================
+    // TXT_PARSER Endpoints
+    // ========================================================================
+
+    /// <summary>
+    /// Obtiene los parsers disponibles
+    /// </summary>
+    [HttpGet("parsers")]
+    [SwaggerOperation(Summary = "Listar parsers", Description = "Obtiene los parsers de archivos disponibles")]
+    [SwaggerResponse(200, "Lista de parsers", typeof(IEnumerable<ParserDto>))]
+    public async Task<ActionResult<IEnumerable<ParserDto>>> GetParsers()
+    {
+        var parsers = await _txtParserService.GetParsersAsync();
+        return Ok(parsers);
+    }
+
+    /// <summary>
+    /// Obtiene un parser por ID
+    /// </summary>
+    [HttpGet("parsers/{parserId:int}")]
+    [SwaggerOperation(Summary = "Obtener parser por ID")]
+    [SwaggerResponse(200, "Parser encontrado", typeof(ParserDto))]
+    [SwaggerResponse(404, "Parser no encontrado")]
+    public async Task<ActionResult<ParserDto>> GetParserById(int parserId)
+    {
+        var parser = await _txtParserService.GetParserByIdAsync(parserId);
+        if (parser == null)
+        {
+            return NotFound(new { message = $"Parser con id {parserId} no encontrado" });
+        }
+        return Ok(parser);
+    }
+
+    /// <summary>
+    /// Parsea archivos usando el parser configurado para el nodo
+    /// </summary>
+    [HttpPost("{id:int}/parse-txt")]
+    [SwaggerOperation(Summary = "Parsear archivos", Description = "Parsea archivos (TXT, HTML, CSV) y devuelve preview antes de ingestar")]
+    [SwaggerResponse(200, "Archivos parseados", typeof(ParseBatchResultDto))]
+    [SwaggerResponse(400, "Error en el parseo")]
+    [SwaggerResponse(404, "Nodo no encontrado")]
+    [DisableRequestSizeLimit]
+    public async Task<ActionResult<ParseBatchResultDto>> ParseTxtFiles(
+        int id,
+        [FromForm] List<IFormFile> files,
+        [FromForm] string? parser_code = null)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null)
+        {
+            return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        }
+
+        // Allow TXT_PARSER and FILE_PARSER types
+        var allowedTypes = new[] { "TXT_PARSER", "FILE_PARSER" };
+        if (!allowedTypes.Contains(nodo.TipoConector))
+        {
+            return BadRequest(new { message = $"Nodo no es de tipo TXT_PARSER o FILE_PARSER. Tipo: {nodo.TipoConector}" });
+        }
+
+        // Get parser code - priority: parameter > config > default
+        string parserCode;
+        if (!string.IsNullOrEmpty(parser_code))
+        {
+            parserCode = parser_code;
+        }
+        else
+        {
+            var detalle = await _conexionService.GetNodoDetalleAsync(id);
+            parserCode = detalle.Configuracion?.ParserCode ?? "TOAST_PARSER";
+        }
+
+        if (files == null || files.Count == 0)
+        {
+            return BadRequest(new { message = "No se proporcionaron archivos" });
+        }
+
+        var result = await _txtParserService.ParseFilesAsync(parserCode, files);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Ingesta los archivos ya parseados
+    /// </summary>
+    [HttpPost("{id:int}/ingest-parsed")]
+    [SwaggerOperation(Summary = "Ingestar archivos parseados", Description = "Ingesta los JSON generados por el parser")]
+    [SwaggerResponse(200, "Archivos ingestados", typeof(IngestBatchResultDto))]
+    [SwaggerResponse(400, "Error en la ingesta")]
+    [SwaggerResponse(404, "Nodo no encontrado")]
+    public async Task<ActionResult<IngestBatchResultDto>> IngestParsedFiles(int id, [FromBody] IngestParsedRequest request)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null)
+        {
+            return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        }
+
+        var results = new List<IngestResultDto>();
+        int successful = 0;
+        int failed = 0;
+        int totalTickets = 0;
+        int totalLineas = 0;
+        string? lastBatchId = null;
+        DateTime? fechaNegocio = null;
+
+        foreach (var file in request.Files)
+        {
+            try
+            {
+                // Convert data to DailySalesBatchRequest
+                var jsonString = System.Text.Json.JsonSerializer.Serialize(file.Data);
+                var batchRequest = System.Text.Json.JsonSerializer.Deserialize<DailySalesBatchRequest>(
+                    jsonString,
+                    new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower
+                    });
+
+                if (batchRequest == null)
+                {
+                    results.Add(new IngestResultDto
+                    {
+                        Success = false,
+                        Filename = file.Filename,
+                        Error = "No se pudo deserializar los datos"
+                    });
+                    failed++;
+                    continue;
+                }
+
+                // Track fecha negocio from batch header
+                if (!string.IsNullOrEmpty(batchRequest.BatchHeader?.BusinessDate) && fechaNegocio == null)
+                {
+                    if (DateTime.TryParse(batchRequest.BatchHeader.BusinessDate, out var parsedDate))
+                    {
+                        fechaNegocio = parsedDate;
+                    }
+                }
+
+                // Use the existing ingestion service
+                var response = await _ingestionService.ProcessBatchAsync(batchRequest, nodo.FranquiciaId, jsonString);
+
+                results.Add(new IngestResultDto
+                {
+                    Success = response.Success,
+                    Filename = file.Filename,
+                    BatchId = response.BatchId,
+                    TicketsProcessed = response.Summary?.TicketsProcessed ?? 0,
+                    Error = response.Success ? null : response.Message
+                });
+
+                if (response.Success)
+                {
+                    successful++;
+                    totalTickets += response.Summary?.TicketsProcessed ?? 0;
+                    totalLineas += response.Summary?.ItemsProcessed ?? 0;
+                    lastBatchId = response.BatchId;
+                }
+                else
+                    failed++;
+            }
+            catch (Exception ex)
+            {
+                results.Add(new IngestResultDto
+                {
+                    Success = false,
+                    Filename = file.Filename,
+                    Error = $"Error: {ex.Message}"
+                });
+                failed++;
+            }
+        }
+
+        // Log execution to log.EjecucionNodo for tracking UltimaSincronizacion
+        await _conexionService.LogEjecucionAsync(
+            nodoConexionId: id,
+            fechaNegocio: fechaNegocio ?? DateTime.Today,
+            estado: failed == 0 ? "SUCCESS" : (successful > 0 ? "WARNING" : "ERROR"),
+            ticketsProcesados: totalTickets,
+            lineasProcesadas: totalLineas,
+            errorsCount: failed,
+            batchId: lastBatchId,
+            mensaje: failed > 0 ? $"{failed} archivos fallaron de {request.Files.Count}" : null
+        );
+
+        return Ok(new IngestBatchResultDto
+        {
+            TotalFiles = request.Files.Count,
+            Successful = successful,
+            Failed = failed,
+            Results = results
+        });
     }
 }

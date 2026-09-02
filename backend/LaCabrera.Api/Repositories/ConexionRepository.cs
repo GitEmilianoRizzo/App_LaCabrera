@@ -20,6 +20,7 @@ public interface IConexionRepository
     Task<int> UpsertMapeoCategoriaAsync(MapeoCategoriaDto mapeo);
     Task<int> UpsertMapeoMedioPagoAsync(MapeoMedioPagoDto mapeo);
     Task<int> ResolverValoresYaMapeadosAsync(int nodoConexionId);
+    Task LogEjecucionAsync(int nodoConexionId, DateTime fechaNegocio, string estado, int ticketsProcesados, int lineasProcesadas, int errorsCount, string? batchId, string? mensaje);
 }
 
 public class ConexionRepository : IConexionRepository
@@ -376,5 +377,33 @@ public class ConexionRepository : IConexionRepository
                   ))
               )",
             new { NodoConexionId = nodoConexionId });
+    }
+
+    public async Task LogEjecucionAsync(int nodoConexionId, DateTime fechaNegocio, string estado, int ticketsProcesados, int lineasProcesadas, int errorsCount, string? batchId, string? mensaje)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO log.EjecucionNodo (
+                NodoConexionId, FechaNegocio, InicioEjecucion, FinEjecucion,
+                Estado, ModoEjecucion, TicketsProcesados, LineasProcesadas,
+                ErrorsCount, BatchId, Mensajes
+            )
+            VALUES (
+                @NodoConexionId, @FechaNegocio, GETUTCDATE(), GETUTCDATE(),
+                @Estado, 'MANUAL', @TicketsProcesados, @LineasProcesadas,
+                @ErrorsCount, @BatchId, @Mensaje
+            )",
+            new
+            {
+                NodoConexionId = nodoConexionId,
+                FechaNegocio = fechaNegocio,
+                Estado = estado,
+                TicketsProcesados = ticketsProcesados,
+                LineasProcesadas = lineasProcesadas,
+                ErrorsCount = errorsCount,
+                BatchId = batchId,
+                Mensaje = mensaje
+            });
     }
 }

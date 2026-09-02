@@ -608,8 +608,8 @@ BEGIN
 
     SELECT
         f.FranquiciaId,
-        f.Codigo,
-        f.Nombre,
+        f.Codigo AS FranquiciaCodigo,
+        f.Nombre AS FranquiciaNombre,
         f.GrupoEconomicoId,
         ge.Codigo AS GrupoEconomicoCodigo,
         f.Pais,
