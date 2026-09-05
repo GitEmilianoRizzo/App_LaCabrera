@@ -5,6 +5,7 @@ from typing import Dict, Optional, List
 from .base_parser import BaseParser
 from .toast_parser import ToastParserImpl
 from .toast_html_parser import ToastHtmlParserImpl
+from .colombia_json_parser import ColombiaJsonParserImpl
 
 
 class ParserRegistry:
@@ -39,6 +40,7 @@ class ParserRegistry:
         """Initialize and register all parsers"""
         cls.register(ToastParserImpl())
         cls.register(ToastHtmlParserImpl())
+        cls.register(ColombiaJsonParserImpl())
 
 
 # Initialize registry on import
