@@ -319,9 +319,117 @@ docker exec lacabrera-sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -Q "RESTORE DATABASE [LaCabreraDB] FROM DISK = '/var/opt/mssql/backup/LaCabreraDB.bak'"
 ```
 
+## Deploy Automatizado a Produccion
+
+### Requisitos previos
+
+1. **SSH Key configurada**: El script usa una clave SSH para conectarse a produccion
+   ```powershell
+   # Generar clave (solo una vez)
+   & "C:\Program Files\Git\usr\bin\ssh-keygen.exe" -t ed25519 -f "$env:USERPROFILE\.ssh\id_ed25519_lacabrera" -N ""
+   ```
+
+2. **Agregar clave al servidor**: Copiar la clave publica al servidor de produccion
+   ```powershell
+   Get-Content "$env:USERPROFILE\.ssh\id_ed25519_lacabrera.pub"
+   # Agregar el contenido a /root/.ssh/authorized_keys en el servidor
+   ```
+
+### Uso del script de deploy
+
+```powershell
+# Deploy completo (valida builds, commit, push, actualiza produccion)
+.\deploy\deploy.bat
+
+# Deploy con mensaje de commit personalizado
+.\deploy\deploy.bat "Fix: correccion de bug en dashboard"
+
+# Deploy sin hacer commit (usa lo que ya esta en GitHub)
+.\deploy\deploy.bat --skip-commit
+
+# Deploy sin validar builds locales (mas rapido)
+.\deploy\deploy.bat --skip-build
+```
+
+### Que hace el script
+
+1. **Valida builds locales**: Compila frontend y backend para detectar errores
+2. **Commit y Push**: Sube cambios a GitHub
+3. **SSH a Produccion**: Conecta al servidor `200.58.127.114:5794`
+4. **Git Pull**: Actualiza codigo en `/opt/lacabrera`
+5. **Docker Rebuild**: Reconstruye imagenes de frontend y API
+6. **Restart Services**: Reinicia containers y nginx (SSL)
+7. **Health Checks**: Verifica que todo funcione
+
+### Arquitectura de Produccion
+
+```
+Internet
+    │
+    ▼ (HTTPS :443)
+┌─────────────────────────────────────┐
+│         Nginx (SSL Proxy)           │
+│   /etc/nginx/sites-enabled/cabreraapp
+└─────────────┬───────────────────────┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+    ▼ (:3000)           ▼ (:5000)
+┌───────────┐      ┌───────────┐
+│  Docker   │      │  Docker   │
+│ Frontend  │      │    API    │
+│  (Nginx)  │      │  (.NET)   │
+└───────────┘      └─────┬─────┘
+                         │
+                         ▼ (:1433)
+                   ┌───────────┐
+                   │  Docker   │
+                   │ SQL Server│
+                   └───────────┘
+```
+
+### URLs de Produccion
+
+| Servicio | URL |
+|----------|-----|
+| Frontend | https://cabreraapp.pillow.com.ar |
+| API Health | https://cabreraapp.pillow.com.ar/api/health |
+| Login | https://cabreraapp.pillow.com.ar/login |
+
+### Troubleshooting Deploy
+
+**SSH no conecta:**
+```powershell
+# Verificar clave
+Test-Path "$env:USERPROFILE\.ssh\id_ed25519_lacabrera"
+
+# Test manual
+& "C:\Program Files\Git\usr\bin\ssh.exe" -i "$env:USERPROFILE\.ssh\id_ed25519_lacabrera" -p 5794 root@200.58.127.114 "echo OK"
+```
+
+**Frontend no responde en HTTPS:**
+```bash
+# En el servidor, verificar nginx
+systemctl status nginx
+nginx -t
+
+# Verificar que frontend esta en puerto 3000
+docker ps | grep frontend
+```
+
+**API no responde:**
+```bash
+# Verificar container
+docker logs lacabrera-api --tail 50
+
+# Health check directo
+curl http://localhost:5000/api/health
+```
+
 ## Seguridad
 
 - **NUNCA** usar las passwords de ejemplo en produccion
 - Cambiar `SA_PASSWORD` y `DB_CONNECTION_STRING` antes de deploy
 - Considerar usar Azure Key Vault o similares para secrets
 - El archivo `.env` NO debe commitearse al repositorio
+- La clave SSH `id_ed25519_lacabrera` debe mantenerse segura
