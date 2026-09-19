@@ -52,6 +52,7 @@ interface EnhancedDataTableProps<T> {
   defaultSortColumn?: string
   defaultSortDirection?: 'asc' | 'desc'
   onRowClick?: (row: T) => void
+  stickyFirstColumn?: boolean
 }
 
 type SortDirection = 'asc' | 'desc' | null
@@ -63,9 +64,10 @@ interface SortableHeaderProps {
   sortDirection: SortDirection
   onSort: (columnId: string) => void
   renderSortIcon: (columnId: string) => React.ReactNode
+  isSticky?: boolean
 }
 
-function SortableHeader({ column, sortColumn, sortDirection, onSort, renderSortIcon }: SortableHeaderProps) {
+function SortableHeader({ column, sortColumn, sortDirection, onSort, renderSortIcon, isSticky }: SortableHeaderProps) {
   const {
     attributes,
     listeners,
@@ -75,10 +77,15 @@ function SortableHeader({ column, sortColumn, sortDirection, onSort, renderSortI
     isDragging,
   } = useSortable({ id: column.id })
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    ...(isSticky && {
+      position: 'sticky',
+      left: 0,
+      zIndex: 10,
+    }),
   }
 
   return (
@@ -88,7 +95,9 @@ function SortableHeader({ column, sortColumn, sortDirection, onSort, renderSortI
       className={`p-3 font-medium text-gray-900 dark:text-gray-100 whitespace-nowrap ${
         column.align === 'right' ? 'text-right' :
         column.align === 'center' ? 'text-center' : 'text-left'
-      } ${isDragging ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+      } ${isDragging ? 'bg-blue-50 dark:bg-blue-900/20' : ''} ${
+        isSticky ? 'bg-gray-50 dark:bg-gray-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]' : ''
+      }`}
     >
       <div className={`flex items-center gap-1 ${
         column.align === 'right' ? 'justify-end' :
@@ -125,6 +134,7 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
   defaultSortColumn,
   defaultSortDirection = 'desc',
   onRowClick,
+  stickyFirstColumn = false,
 }: EnhancedDataTableProps<T>) {
   // Estado para columnas visibles (array de IDs en el orden actual)
   const [columnOrder, setColumnOrder] = useState<string[]>(() =>
@@ -341,7 +351,7 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
                     items={columnOrder}
                     strategy={horizontalListSortingStrategy}
                   >
-                    {displayColumns.map((column) => (
+                    {displayColumns.map((column, index) => (
                       <SortableHeader
                         key={column.id}
                         column={column as ColumnDef<unknown>}
@@ -349,6 +359,7 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
                         sortDirection={sortDirection}
                         onSort={handleSort}
                         renderSortIcon={renderSortIcon}
+                        isSticky={stickyFirstColumn && index === 0}
                       />
                     ))}
                   </SortableContext>
@@ -373,13 +384,13 @@ export function EnhancedDataTable<T extends Record<string, unknown>>({
                       }`}
                       onClick={() => onRowClick?.(row)}
                     >
-                      {displayColumns.map((column) => (
+                      {displayColumns.map((column, colIndex) => (
                         <td
                           key={column.id}
                           className={`p-3 ${column.className || ''} ${
                             column.align === 'right' ? 'text-right' :
                             column.align === 'center' ? 'text-center' : 'text-left'
-                          }`}
+                          } ${stickyFirstColumn && colIndex === 0 ? 'sticky left-0 z-10 bg-white dark:bg-gray-900 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]' : ''}`}
                         >
                           {column.cell
                             ? column.cell(row)

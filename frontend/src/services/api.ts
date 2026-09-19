@@ -268,6 +268,12 @@ export const conexionesApi = {
     return response.data
   },
 
+  // Ejecutar extracción desde último día con datos hasta ayer (evita huecos)
+  async ejecutarExtraccionDesdeUltimo(nodoId: number): Promise<EjecucionResult> {
+    const response = await apiClient.post<EjecucionResult>(`/conexiones/${nodoId}/ejecutar-desde-ultimo`)
+    return response.data
+  },
+
   // Obtener catalogos
   async getCategorias(): Promise<string[]> {
     const response = await apiClient.get<string[]>('/conexiones/catalogos/categorias')

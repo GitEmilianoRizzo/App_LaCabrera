@@ -11,6 +11,7 @@ import { Conexiones } from './pages/Conexiones'
 import { EstadoIntegracion } from './pages/EstadoIntegracion'
 import { TiposCambio } from './pages/TiposCambio'
 import { Usuarios } from './pages/Usuarios'
+import { Alertas } from './pages/Alertas'
 
 // Redirect to dashboard if already authenticated
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -57,6 +58,7 @@ function App() {
         <Route path="ventas/franquicia" element={<VentasFranquicia />} />
         <Route path="ventas/producto" element={<VentasProducto />} />
         <Route path="ventas/mozo" element={<VentasMozo />} />
+        <Route path="alertas" element={<Alertas />} />
         <Route path="operaciones/mesas" element={<OcupacionMesas />} />
         <Route path="conexiones" element={<Conexiones />} />
         <Route path="integracion/estado" element={<EstadoIntegracion />} />

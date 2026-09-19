@@ -14,6 +14,7 @@ import {
   Loader2,
   Save,
   ArrowRight,
+  FastForward,
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -76,6 +77,7 @@ export function Conexiones() {
   const updateEstado = useUpdateNodoEstado(refetch)
   const [testingConnection, setTestingConnection] = useState(false)
   const [executingId, setExecutingId] = useState<number | null>(null)
+  const [syncingFromLastId, setSyncingFromLastId] = useState<number | null>(null)
   const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
 
   // Modal de mapeo de valores (categorias, medios de pago)
@@ -341,6 +343,28 @@ export function Conexiones() {
     showAlert('success', 'Datos procesados exitosamente')
   }
 
+  // Sync desde último día con datos (evita huecos)
+  const handleSyncDesdeUltimo = async (conexion: NodoConexion) => {
+    setSyncingFromLastId(conexion.nodo_conexion_id)
+    try {
+      const result = await conexionesApi.ejecutarExtraccionDesdeUltimo(conexion.nodo_conexion_id)
+      if (result.success) {
+        showAlert('success', `Sincronización completada: ${result.message}`)
+      } else {
+        showAlert('error', `Error en sincronización: ${result.message}`)
+      }
+      refetch()
+      if (selectedConexionId === conexion.nodo_conexion_id) {
+        refetchDetalle()
+      }
+    } catch (err) {
+      console.error('Error en sync desde último:', err)
+      showAlert('error', 'Error al ejecutar sincronización desde último día con datos.')
+    } finally {
+      setSyncingFromLastId(null)
+    }
+  }
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -540,7 +564,7 @@ export function Conexiones() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            title={conexion.tipo_conector === 'FILE_PARSER' || conexion.tipo_conector === 'TXT_PARSER' ? 'Subir archivo' : 'Ejecutar ahora'}
+                            title={conexion.tipo_conector === 'FILE_PARSER' || conexion.tipo_conector === 'TXT_PARSER' ? 'Subir archivo' : 'Ejecutar ahora (ayer)'}
                             onClick={(e) => {
                               e.stopPropagation()
                               handleEjecutarAhora(conexion)
@@ -551,6 +575,29 @@ export function Conexiones() {
                               <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
                               <Play className="w-4 h-4" />
+                            )}
+                          </Button>
+                        )}
+                        {/* Botón Sync desde último: solo para conectores API tipo PULL activos */}
+                        {conexion.estado === 'ACTIVE' &&
+                          conexion.modo === 'PULL' &&
+                          conexion.tipo_conector !== 'TXT_PARSER' &&
+                          conexion.tipo_conector !== 'FILE_PARSER' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Sync desde último día con datos (evita huecos)"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleSyncDesdeUltimo(conexion)
+                            }}
+                            disabled={syncingFromLastId === conexion.nodo_conexion_id}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950"
+                          >
+                            {syncingFromLastId === conexion.nodo_conexion_id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <FastForward className="w-4 h-4" />
                             )}
                           </Button>
                         )}

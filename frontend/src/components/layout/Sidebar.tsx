@@ -3,8 +3,6 @@ import {
   LayoutDashboard,
   Store,
   ShoppingBag,
-  Users,
-  Table2,
   Plug,
   Cable,
   ChevronRight,
@@ -13,6 +11,7 @@ import {
   UserCog,
   Shield,
   X,
+  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,9 +19,8 @@ import { useAuth } from '@/contexts/AuthContext'
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Por Franquicia', href: '/ventas/franquicia', icon: Store },
-  { name: 'Por Producto', href: '/ventas/producto', icon: ShoppingBag },
-  { name: 'Por Mozo', href: '/ventas/mozo', icon: Users },
-  { name: 'Mesas', href: '/operaciones/mesas', icon: Table2 },
+  // { name: 'Por Producto', href: '/ventas/producto', icon: ShoppingBag }, // Oculto temporalmente
+  { name: 'Alertas', href: '/alertas', icon: AlertTriangle },
   { name: 'Conexiones', href: '/conexiones', icon: Cable },
   { name: 'Integracion', href: '/integracion/estado', icon: Plug },
   { name: 'Tipos de Cambio', href: '/admin/tipos-cambio', icon: BadgeDollarSign },

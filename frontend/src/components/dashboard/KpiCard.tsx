@@ -11,6 +11,7 @@ interface KpiCardProps {
   decimals?: number
   trend?: number
   trendLabel?: string
+  subtitle?: string
   icon?: LucideIcon
   iconColor?: string
   className?: string
@@ -24,6 +25,7 @@ export function KpiCard({
   decimals = 0,
   trend,
   trendLabel,
+  subtitle,
   icon: Icon,
   iconColor = 'bg-primary/10 text-primary',
   className,
@@ -49,6 +51,9 @@ export function KpiCard({
           <div className="flex-1">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
             <p className="mt-2 text-2xl font-bold tracking-tight">{formattedValue}</p>
+            {subtitle && (
+              <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+            )}
             {trend !== undefined && (
               <div className={cn('flex items-center gap-1 mt-1 text-sm', trendColor)}>
                 {TrendIcon && <TrendIcon className="w-4 h-4" />}

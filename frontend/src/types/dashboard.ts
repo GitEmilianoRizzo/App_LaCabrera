@@ -296,6 +296,14 @@ export interface Transaccion {
   importe_total_pagado: number
   tiempo_consumo_minutos: number | null
   cantidad_items: number
+  // USD conversion
+  tipo_cambio: number
+  importe_bruto_usd: number
+  importe_descuento_usd: number
+  importe_neto_usd: number
+  importe_impuesto_usd: number
+  importe_propina_usd: number
+  importe_total_pagado_usd: number
 }
 
 export interface TransaccionDetalle {

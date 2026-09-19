@@ -310,6 +310,52 @@ public class ConexionController : ControllerBase
     }
 
     /// <summary>
+    /// Ejecuta extraccion desde la ultima fecha con datos hasta ayer
+    /// </summary>
+    [HttpPost("{id:int}/ejecutar-desde-ultimo")]
+    [SwaggerOperation(Summary = "Ejecutar extraccion desde ultimo dia con datos", Description = "Sincroniza desde la ultima fecha con datos hasta ayer, evitando huecos. Si no hay datos previos, sincroniza ultimos 30 dias.")]
+    [SwaggerResponse(200, "Extraccion completada", typeof(EjecucionResultDto))]
+    [SwaggerResponse(404, "Nodo no encontrado")]
+    public async Task<ActionResult<EjecucionResultDto>> EjecutarExtraccionDesdeUltimo(int id)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null)
+        {
+            return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        }
+
+        if (nodo.Estado != "ACTIVE")
+        {
+            return BadRequest(new { message = $"Nodo no esta activo. Estado actual: {nodo.Estado}" });
+        }
+
+        EjecucionResultDto resultado;
+        var tipoConector = nodo.TipoConector.ToUpperInvariant();
+
+        if (tipoConector.StartsWith("AGORA"))
+        {
+            resultado = await _agoraExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
+        }
+        else if (tipoConector.StartsWith("VINSON") || tipoConector == "AYRESIT")
+        {
+            resultado = await _vinsonExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
+        }
+        else
+        {
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado para este modo. Tipos validos: AGORA*, VINSON*, AYRESIT" });
+        }
+
+        if (resultado.Success)
+        {
+            return Ok(resultado);
+        }
+        else
+        {
+            return StatusCode(500, resultado);
+        }
+    }
+
+    /// <summary>
     /// Obtiene las categorias disponibles para mapeo
     /// </summary>
     [HttpGet("catalogos/categorias")]

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { DollarSign, Ticket, Users, TrendingUp, Info } from 'lucide-react'
+import { DollarSign, Ticket, Users, TrendingUp, Info, Store } from 'lucide-react'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { SalesLineChart, MetricOption } from '@/components/charts/SalesLineChart'
 import { HorizontalBarChart } from '@/components/charts/HorizontalBarChart'
@@ -69,14 +69,16 @@ export function DashboardHome() {
   // Estado para el modal de exportación Excel
   const [exportModalOpen, setExportModalOpen] = useState(false)
 
-  // Filtros - por defecto último mes hasta hoy
+  // Filtros - por defecto día 1 al último día del mes actual
   const getDefaultDates = () => {
     const today = new Date()
-    const monthAgo = new Date(today)
-    monthAgo.setMonth(monthAgo.getMonth() - 1)
+    const year = today.getFullYear()
+    const month = today.getMonth()
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
     return {
-      fechaDesde: monthAgo.toISOString().split('T')[0],
-      fechaHasta: today.toISOString().split('T')[0],
+      fechaDesde: firstDay.toISOString().split('T')[0],
+      fechaHasta: lastDay.toISOString().split('T')[0],
     }
   }
   const defaultDates = getDefaultDates()
@@ -125,6 +127,10 @@ export function DashboardHome() {
   const tableData = useMemo(() => {
     if (!dashboardData) return []
 
+    // Obtener venta de Palermo para calcular % vs Palermo
+    const palermo = dashboardData.find(f => f.franquicia_codigo === 'LC_PALERMO')
+    const ventaPalermoRef = palermo?.venta_neta || 0
+
     // Filtrar por país si es necesario (filtro local adicional)
     let data = dashboardData
     if (filters.pais) {
@@ -139,6 +145,8 @@ export function DashboardHome() {
       const dias_con_tasa = f.dias_con_tasa || 0
       const dias_sin_tasa = f.dias_sin_tasa || 0
       const calidad = f.calidad_conversion || (dias_sin_tasa === 0 ? 'OK' : dias_sin_tasa < dias_con_tasa ? 'PARCIAL' : 'SIN_TASA')
+      // % vs Palermo: (venta franquicia / venta palermo) * 100
+      const pct_vs_palermo = ventaPalermoRef > 0 ? (venta_neta / ventaPalermoRef) * 100 : 0
       return {
         franquicia_id: f.franquicia_id,
         franquicia_codigo: f.franquicia_codigo,
@@ -155,6 +163,7 @@ export function DashboardHome() {
         tickets_por_dia: diasRango > 0 ? total_tickets / diasRango : 0,
         cubiertos_por_ticket: total_tickets > 0 ? total_cubiertos / total_tickets : 0,
         cubiertos_por_dia: diasRango > 0 ? total_cubiertos / diasRango : 0,
+        pct_vs_palermo,
         calidad_conversion: calidad,
         dias_con_tasa,
         dias_sin_tasa,
@@ -192,6 +201,7 @@ export function DashboardHome() {
       header: 'Grupo',
       accessorKey: 'grupo_economico_nombre',
       sortable: true,
+      defaultVisible: false,
       cell: (row) => (
         <span className="text-muted-foreground">{row.grupo_economico_nombre || '-'}</span>
       ),
@@ -201,6 +211,7 @@ export function DashboardHome() {
       header: 'País',
       accessorKey: 'pais',
       sortable: true,
+      defaultVisible: false,
       cell: (row) => row.pais || '-',
     },
     {
@@ -208,6 +219,7 @@ export function DashboardHome() {
       header: 'Ciudad',
       accessorKey: 'ciudad',
       sortable: true,
+      defaultVisible: false,
       cell: (row) => row.ciudad || '-',
     },
     {
@@ -223,20 +235,8 @@ export function DashboardHome() {
       ),
     },
     {
-      id: 'venta_mes_actual',
-      header: 'Venta (Mes)',
-      accessorKey: 'venta_mes_actual',
-      align: 'right',
-      sortable: true,
-      cell: (row) => (
-        <span className="text-blue-600 dark:text-blue-400" title="Mes actual acumulado">
-          {formatCurrency(row.venta_mes_actual, 'USD')}
-        </span>
-      ),
-    },
-    {
       id: 'venta_mes_anterior',
-      header: 'Venta (Mes-1)',
+      header: 'Venta Mes Ant.',
       accessorKey: 'venta_mes_anterior',
       align: 'right',
       sortable: true,
@@ -265,6 +265,7 @@ export function DashboardHome() {
       accessorKey: 'venta_acum_anio_actual',
       align: 'right',
       sortable: true,
+      defaultVisible: false,
       cell: (row) => (
         <span className="font-medium text-emerald-600 dark:text-emerald-400" title="Acumulado año actual">
           {formatCurrency(row.venta_acum_anio_actual, 'USD')}
@@ -290,6 +291,7 @@ export function DashboardHome() {
       accessorKey: 'total_tickets',
       align: 'right',
       sortable: true,
+      defaultVisible: false,
       cell: (row) => (
         <span title={`Período: ${filters.fechaDesde} a ${filters.fechaHasta}`}>
           {formatNumber(row.total_tickets)}
@@ -297,20 +299,8 @@ export function DashboardHome() {
       ),
     },
     {
-      id: 'tickets_mes_actual',
-      header: 'Tickets (Mes)',
-      accessorKey: 'tickets_mes_actual',
-      align: 'right',
-      sortable: true,
-      cell: (row) => (
-        <span className="text-blue-600 dark:text-blue-400" title="Mes actual acumulado">
-          {formatNumber(row.tickets_mes_actual)}
-        </span>
-      ),
-    },
-    {
       id: 'tickets_mes_anterior',
-      header: 'Tickets (Mes-1)',
+      header: 'Tickets Mes Ant.',
       accessorKey: 'tickets_mes_anterior',
       align: 'right',
       sortable: true,
@@ -341,6 +331,30 @@ export function DashboardHome() {
       align: 'right',
       sortable: true,
       cell: (row) => formatCurrency(row.ticket_promedio, 'USD'),
+    },
+    {
+      id: 'pct_vs_palermo',
+      header: '% vs Palermo',
+      accessorKey: 'pct_vs_palermo',
+      align: 'right',
+      sortable: true,
+      cell: (row) => {
+        const pct = row.pct_vs_palermo
+        const isPalermo = row.franquicia_codigo === 'LC_PALERMO'
+        if (isPalermo) {
+          return <span className="font-bold text-amber-600 dark:text-amber-400">100% (Ref)</span>
+        }
+        const colorClass = pct >= 100
+          ? 'text-green-600 dark:text-green-400'
+          : pct >= 80
+          ? 'text-amber-600 dark:text-amber-400'
+          : 'text-red-600 dark:text-red-400'
+        return (
+          <span className={`font-medium ${colorClass}`} title={`Comparado con Palermo Central`}>
+            {formatNumber(pct, 1)}%
+          </span>
+        )
+      },
     },
     {
       id: 'calidad_conversion',
@@ -387,24 +401,11 @@ export function DashboardHome() {
       ),
     },
     {
-      id: 'cubiertos_mes_actual',
-      header: 'Cub. (Mes)',
-      accessorKey: 'cubiertos_mes_actual',
-      align: 'right',
-      sortable: true,
-      cell: (row) => (
-        <span className="text-blue-600 dark:text-blue-400" title="Mes actual acumulado">
-          {formatNumber(row.cubiertos_mes_actual)}
-        </span>
-      ),
-    },
-    {
       id: 'cubiertos_mes_anterior',
-      header: 'Cub. (Mes-1)',
+      header: 'Cub. Mes Ant.',
       accessorKey: 'cubiertos_mes_anterior',
       align: 'right',
       sortable: true,
-      defaultVisible: false,
       cell: (row) => (
         <span className="text-muted-foreground" title="Mes anterior completo">
           {formatNumber(row.cubiertos_mes_anterior)}
@@ -441,7 +442,6 @@ export function DashboardHome() {
       accessorKey: 'cubiertos_por_dia',
       align: 'right',
       sortable: true,
-      defaultVisible: false,
       cell: (row) => (
         <span className="text-muted-foreground">{formatNumber(row.cubiertos_por_dia, 1)}</span>
       ),
@@ -471,23 +471,17 @@ export function DashboardHome() {
     )
   }, [dashboardData])
 
-  // Footer de totales para la tabla (debe estar después de totals)
-  const tableFooter = useMemo(() => (
-    <tr className="bg-gray-100 dark:bg-gray-800 font-semibold text-gray-900 dark:text-white">
-      <td className="p-3" colSpan={4}>TOTAL</td>
-      <td className="p-3 text-right">{formatCurrency(totals.ventaNeta, 'USD')}</td>
-      <td className="p-3 text-right">{formatNumber(totals.tickets)}</td>
-      <td className="p-3 text-right">
-        {formatCurrency(totals.tickets > 0 ? totals.ventaNeta / totals.tickets : 0, 'USD')}
-      </td>
-      <td className="p-3 text-right">{formatNumber(diasRango > 0 ? totals.tickets / diasRango : 0, 1)}</td>
-      <td className="p-3 text-right">{formatNumber(totals.cubiertos)}</td>
-      <td className="p-3 text-right">
-        {formatNumber(totals.tickets > 0 ? totals.cubiertos / totals.tickets : 0, 1)}
-      </td>
-      <td className="p-3 text-right">{formatNumber(diasRango > 0 ? totals.cubiertos / diasRango : 0, 1)}</td>
-    </tr>
-  ), [totals, diasRango])
+  // Obtener datos de Palermo (Central) para comparación
+  const palermoData = useMemo(() => {
+    if (!dashboardData) return null
+    // Buscar franquicia Palermo por código LC_PALERMO
+    return dashboardData.find(f => f.franquicia_codigo === 'LC_PALERMO') || null
+  }, [dashboardData])
+
+  const ventaPalermo = palermoData?.venta_neta || 0
+
+  // Footer de totales simplificado (los totales completos están en los KPIs)
+  const tableFooter = null // Deshabilitado - los totales ya se muestran en los KPI cards
 
   // Preparar datos para grafico de lineas (basado en métrica seleccionada)
   const chartData = useMemo(() => {
@@ -726,7 +720,7 @@ export function DashboardHome() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
           title="Venta Neta (Periodo)"
           value={totals.ventaNeta}
@@ -753,6 +747,15 @@ export function DashboardHome() {
           icon={TrendingUp}
           iconColor="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
         />
+        <KpiCard
+          title="Palermo (Referencia)"
+          value={ventaPalermo}
+          format="currency"
+          icon={Store}
+          iconColor="bg-white/30 text-white"
+          subtitle={ventaPalermo > 0 ? 'Central de comparación' : 'Sin datos disponibles'}
+          className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-emerald-600 [&_p]:text-white [&_.text-muted-foreground]:text-emerald-100"
+        />
       </div>
 
       {/* Tabla Resumen por Franquicia con selector de columnas, búsqueda y ordenamiento */}
@@ -767,6 +770,7 @@ export function DashboardHome() {
         defaultSortColumn="venta_neta"
         defaultSortDirection="desc"
         onRowClick={handleFranquiciaClick}
+        stickyFirstColumn={true}
       />
 
       {/* Indicador de filtros activos - más visible */}

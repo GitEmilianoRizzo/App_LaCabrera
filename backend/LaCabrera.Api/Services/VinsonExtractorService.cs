@@ -18,6 +18,11 @@ public interface IVinsonExtractorService
 {
     Task<EjecucionResultDto> EjecutarExtraccionAsync(int nodoConexionId, DateTime? fechaNegocio = null);
     Task<EjecucionResultDto> EjecutarExtraccionRangoAsync(int nodoConexionId, DateTime fechaDesde, DateTime fechaHasta);
+    /// <summary>
+    /// Sincroniza desde el último día con datos hasta hoy, evitando huecos.
+    /// Si no hay datos previos, sincroniza los últimos 30 días.
+    /// </summary>
+    Task<EjecucionResultDto> EjecutarExtraccionDesdeUltimoAsync(int nodoConexionId);
 }
 
 public class VinsonExtractorService : IVinsonExtractorService
@@ -268,6 +273,87 @@ public class VinsonExtractorService : IVinsonExtractorService
             diasProcesados, totalTickets, totalLineas, totalErrores);
 
         return resultado;
+    }
+
+    public async Task<EjecucionResultDto> EjecutarExtraccionDesdeUltimoAsync(int nodoConexionId)
+    {
+        try
+        {
+            // 1. Obtener franquicia del nodo
+            var nodo = await _conexionRepository.GetNodoByIdAsync(nodoConexionId);
+            if (nodo == null)
+            {
+                return new EjecucionResultDto { Success = false, Message = "Nodo no encontrado" };
+            }
+
+            // 2. Definir ventana de búsqueda: últimos 60 días
+            const int diasVentana = 60;
+            var fechaLimite = DateTime.Today.AddDays(-diasVentana);
+            var fechaHasta = DateTime.Today.AddDays(-1); // Hasta ayer (hoy puede estar incompleto)
+
+            // 3. Buscar todas las fechas CON datos en la ventana
+            using var connection = _connectionFactory.CreateConnection();
+            var fechasConDatos = (await connection.QueryAsync<DateTime>(@"
+                SELECT DISTINCT CAST(FechaNegocio AS DATE) as Fecha
+                FROM fact.VentaTicket
+                WHERE FranquiciaId = @FranquiciaId
+                  AND FechaNegocio >= @FechaLimite
+                  AND FechaNegocio <= @FechaHasta
+                ORDER BY Fecha",
+                new { FranquiciaId = nodo.FranquiciaId, FechaLimite = fechaLimite, FechaHasta = fechaHasta }))
+                .ToHashSet();
+
+            // 4. Encontrar el primer hueco (día sin datos) en la ventana
+            DateTime fechaDesde;
+            if (fechasConDatos.Count == 0)
+            {
+                // Sin datos: sincronizar toda la ventana
+                fechaDesde = fechaLimite;
+                _logger.LogInformation("Sin datos en últimos {Dias} días para franquicia {FranquiciaId}. Sincronizando desde {Fecha}.",
+                    diasVentana, nodo.FranquiciaId, fechaDesde.ToString("yyyy-MM-dd"));
+            }
+            else
+            {
+                // Buscar el primer día sin datos desde fechaLimite
+                fechaDesde = fechaHasta; // Por defecto, todo está completo
+                for (var fecha = fechaLimite; fecha <= fechaHasta; fecha = fecha.AddDays(1))
+                {
+                    if (!fechasConDatos.Contains(fecha.Date))
+                    {
+                        fechaDesde = fecha;
+                        break;
+                    }
+                }
+
+                if (fechaDesde == fechaHasta && fechasConDatos.Contains(fechaHasta.Date))
+                {
+                    // Todos los días tienen datos, verificar si ayer está incluido
+                    return new EjecucionResultDto
+                    {
+                        Success = true,
+                        Message = $"Datos completos en últimos {diasVentana} días, no hay huecos que llenar",
+                        TicketsProcesados = 0
+                    };
+                }
+
+                var huecosCount = Enumerable.Range(0, (fechaHasta - fechaDesde).Days + 1)
+                    .Count(d => !fechasConDatos.Contains(fechaDesde.AddDays(d).Date));
+
+                _logger.LogInformation("Encontrados {Huecos} días sin datos desde {Fecha} para franquicia {FranquiciaId}. Sincronizando para llenar huecos.",
+                    huecosCount, fechaDesde.ToString("yyyy-MM-dd"), nodo.FranquiciaId);
+            }
+
+            // 5. Ejecutar sincronización del rango
+            _logger.LogInformation("Iniciando sincronización para llenar huecos: {Desde} a {Hasta} para nodo {NodoId}",
+                fechaDesde.ToString("yyyy-MM-dd"), fechaHasta.ToString("yyyy-MM-dd"), nodoConexionId);
+
+            return await EjecutarExtraccionRangoAsync(nodoConexionId, fechaDesde, fechaHasta);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error en EjecutarExtraccionDesdeUltimoAsync para nodo {NodoId}", nodoConexionId);
+            return new EjecucionResultDto { Success = false, Message = ex.Message };
+        }
     }
 
     private async Task<string?> ObtenerTokenAsync(int nodoConexionId, ConnectionConfigDto connection)

@@ -919,7 +919,7 @@ public class DashboardRepository : IDashboardRepository
                 vt.AreaMesa,
                 vt.NombreMozo,
                 vt.CantidadCubiertos,
-                vt.CodigoMoneda AS MonedaCodigo,
+                m.CodigoISO AS MonedaCodigo,
                 vt.ImporteBruto,
                 vt.ImporteDescuento,
                 vt.ImporteNeto,
@@ -927,8 +927,50 @@ public class DashboardRepository : IDashboardRepository
                 vt.ImportePropina,
                 vt.ImporteTotalPagado,
                 vt.TiempoConsumoMinutos,
-                (SELECT COUNT(*) FROM fact.VentaTicketDetalle vtd WHERE vtd.VentaTicketId = vt.VentaTicketId AND vtd.EstaAnulado = 0) AS CantidadItems
+                (SELECT COUNT(*) FROM fact.VentaTicketDetalle vtd WHERE vtd.VentaTicketId = vt.VentaTicketId AND vtd.EstaAnulado = 0) AS CantidadItems,
+                -- Tipo de cambio (UnidadesPorUsd = cuántas unidades de moneda local por 1 USD)
+                COALESCE(tc.UnidadesPorUsd, 1.0) AS TipoCambio,
+                -- Importes en USD (dividir por UnidadesPorUsd)
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteBruto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteBruto / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteBruto
+                END AS ImporteBrutoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteDescuento
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteDescuento / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteDescuento
+                END AS ImporteDescuentoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteNeto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteNeto / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteNeto
+                END AS ImporteNetoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteImpuesto
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteImpuesto / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteImpuesto
+                END AS ImporteImpuestoUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImportePropina
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImportePropina / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImportePropina
+                END AS ImportePropinaUsd,
+                CASE
+                    WHEN m.CodigoISO = 'USD' THEN vt.ImporteTotalPagado
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(vt.ImporteTotalPagado / tc.UnidadesPorUsd, 2)
+                    ELSE vt.ImporteTotalPagado
+                END AS ImporteTotalPagadoUsd
             FROM fact.VentaTicket vt
+            INNER JOIN dim.Franquicia f ON vt.FranquiciaId = f.FranquiciaId
+            INNER JOIN dim.Moneda m ON f.MonedaId = m.MonedaId
+            OUTER APPLY (
+                SELECT TOP 1 tc2.UnidadesPorUsd
+                FROM dim.TipoCambio tc2
+                WHERE tc2.CodigoMoneda = m.CodigoISO
+                  AND tc2.Fecha <= vt.FechaNegocio
+                ORDER BY tc2.Fecha DESC
+            ) tc
             WHERE vt.FranquiciaId = @FranquiciaId
               AND vt.FechaNegocio >= @FechaDesde
               AND vt.FechaNegocio <= @FechaHasta

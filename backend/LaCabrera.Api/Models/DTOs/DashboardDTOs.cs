@@ -859,6 +859,28 @@ public class TransaccionDto
 
     [JsonPropertyName("cantidad_items")]
     public int CantidadItems { get; set; }
+
+    // Conversión a USD
+    [JsonPropertyName("tipo_cambio")]
+    public decimal TipoCambio { get; set; }
+
+    [JsonPropertyName("importe_bruto_usd")]
+    public decimal ImporteBrutoUsd { get; set; }
+
+    [JsonPropertyName("importe_descuento_usd")]
+    public decimal ImporteDescuentoUsd { get; set; }
+
+    [JsonPropertyName("importe_neto_usd")]
+    public decimal ImporteNetoUsd { get; set; }
+
+    [JsonPropertyName("importe_impuesto_usd")]
+    public decimal ImporteImpuestoUsd { get; set; }
+
+    [JsonPropertyName("importe_propina_usd")]
+    public decimal ImportePropinaUsd { get; set; }
+
+    [JsonPropertyName("importe_total_pagado_usd")]
+    public decimal ImporteTotalPagadoUsd { get; set; }
 }
 
 /// <summary>
