@@ -69,7 +69,21 @@ public class DashboardRepository : IDashboardRepository
             -- Inicio de cada período
             DECLARE @InicioMesActual DATE = DATEFROMPARTS(@AnioActual, @MesActual, 1);
             DECLARE @InicioMesAnterior DATE = DATEFROMPARTS(@AnioMesAnterior, @MesAnterior, 1);
-            DECLARE @FinMesAnterior DATE = DATEADD(DAY, -1, @InicioMesActual);
+
+            -- Para comparación justa: usar el mismo rango de días que el período actual
+            -- Si el período actual es Sep 5-20, el mes anterior debe ser Ago 5-20 (no todo Agosto)
+            DECLARE @DiaInicioPeriodo INT = DAY(@FechaDesde);
+            DECLARE @DiaFinPeriodo INT = DAY(@FechaHasta);
+            DECLARE @UltimoDiaMesAnterior INT = DAY(EOMONTH(@InicioMesAnterior));
+
+            -- Ajustar día de inicio (si el mes anterior tiene menos días)
+            DECLARE @DiaInicioComparable INT = CASE WHEN @DiaInicioPeriodo > @UltimoDiaMesAnterior THEN @UltimoDiaMesAnterior ELSE @DiaInicioPeriodo END;
+            DECLARE @InicioMesAnteriorComparable DATE = DATEFROMPARTS(@AnioMesAnterior, @MesAnterior, @DiaInicioComparable);
+
+            -- Ajustar día de fin (si el mes anterior tiene menos días)
+            DECLARE @DiaFinComparable INT = CASE WHEN @DiaFinPeriodo > @UltimoDiaMesAnterior THEN @UltimoDiaMesAnterior ELSE @DiaFinPeriodo END;
+            DECLARE @FinMesAnterior DATE = DATEFROMPARTS(@AnioMesAnterior, @MesAnterior, @DiaFinComparable);
+
             DECLARE @InicioAnioActual DATE = DATEFROMPARTS(@AnioActual, 1, 1);
             DECLARE @InicioAnioPrevio DATE = DATEFROMPARTS(@AnioPrevio, 1, 1);
             -- Para YTD previo: usar el menor entre el día actual y el último día del mes en el año anterior
@@ -204,7 +218,7 @@ public class DashboardRepository : IDashboardRepository
                     ORDER BY tc2.Fecha DESC
                 ) tc
                 WHERE vt.EstaAnulado = 0
-                  AND vt.FechaNegocio >= @InicioMesAnterior
+                  AND vt.FechaNegocio >= @InicioMesAnteriorComparable
                   AND vt.FechaNegocio <= @FinMesAnterior
                 GROUP BY vt.FranquiciaId
             ),
