@@ -256,8 +256,9 @@ export function VentasFranquicia() {
 
   // Totales de la franquicia seleccionada
   const totals = useMemo(() => {
-    if (!selectedFranquicia) return { ventaNeta: 0, ventaLocal: 0, tickets: 0, cubiertos: 0 }
+    if (!selectedFranquicia) return { ventaBruta: 0, ventaNeta: 0, ventaLocal: 0, tickets: 0, cubiertos: 0 }
     return {
+      ventaBruta: selectedFranquicia.venta_bruta || 0,
       ventaNeta: selectedFranquicia.venta_neta || 0,
       ventaLocal: selectedFranquicia.venta_neta_local || 0,
       tickets: selectedFranquicia.total_tickets || 0,
@@ -267,9 +268,8 @@ export function VentasFranquicia() {
 
   // Valor de venta según modo de moneda
   const displayVenta = currencyMode === 'LOCAL' ? totals.ventaLocal : totals.ventaNeta
-  const displayTicketPromedio = totals.tickets > 0
-    ? (currencyMode === 'LOCAL' ? totals.ventaLocal : totals.ventaNeta) / totals.tickets
-    : 0
+  // Ticket promedio siempre sobre venta bruta (con impuestos)
+  const displayTicketPromedio = totals.tickets > 0 ? totals.ventaBruta / totals.tickets : 0
 
   // Preparar datos para gráfico de líneas
   const chartData = useMemo(() => {

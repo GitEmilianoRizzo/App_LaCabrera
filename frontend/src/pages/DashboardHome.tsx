@@ -42,6 +42,7 @@ interface FranquiciaModalData {
   pais?: string
   ciudad?: string
   moneda_codigo?: string
+  venta_bruta: number
   venta_neta: number
   venta_neta_local: number
   total_tickets: number
@@ -138,6 +139,7 @@ export function DashboardHome() {
     }
 
     return data.map(f => {
+      const venta_bruta = f.venta_bruta || 0  // Ya viene en USD (con impuestos)
       const venta_neta = f.venta_neta || 0  // Ya viene en USD
       const venta_neta_local = f.venta_neta_local || 0
       const total_tickets = f.total_tickets || 0
@@ -155,11 +157,12 @@ export function DashboardHome() {
         pais: f.pais,
         ciudad: f.ciudad,
         moneda_codigo: f.moneda_codigo,
+        venta_bruta,  // USD - Con impuestos
         venta_neta,  // USD - Período seleccionado
         venta_neta_local,
         total_tickets,
         total_cubiertos,
-        ticket_promedio: total_tickets > 0 ? venta_neta / total_tickets : 0,
+        ticket_promedio: total_tickets > 0 ? venta_bruta / total_tickets : 0,  // Usar venta bruta (con impuestos)
         tickets_por_dia: diasRango > 0 ? total_tickets / diasRango : 0,
         cubiertos_por_ticket: total_tickets > 0 ? total_cubiertos / total_tickets : 0,
         cubiertos_por_dia: diasRango > 0 ? total_cubiertos / diasRango : 0,

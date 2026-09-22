@@ -17,6 +17,7 @@ export interface HomeDashboard {
   alerta_sincronizacion: boolean
 
   // Totales (en el rango de fechas seleccionado) - en USD
+  venta_bruta: number
   venta_neta: number
   venta_neta_local: number
   total_cubiertos: number

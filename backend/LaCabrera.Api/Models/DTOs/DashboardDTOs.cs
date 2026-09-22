@@ -45,6 +45,9 @@ public class HomeDashboardDto
     public decimal VentaNetaLocal { get; set; }
 
     // Valores en USD (consolidados)
+    [JsonPropertyName("venta_bruta")]
+    public decimal VentaBruta { get; set; }
+
     [JsonPropertyName("venta_neta")]
     public decimal VentaNeta { get; set; }
 
@@ -69,7 +72,7 @@ public class HomeDashboardDto
     public decimal? VentaPorCubierto => TotalCubiertos > 0 ? VentaNeta / TotalCubiertos : null;
 
     [JsonPropertyName("ticket_promedio")]
-    public decimal? TicketPromedio => TotalTickets > 0 ? VentaNeta / TotalTickets : null;
+    public decimal? TicketPromedio => TotalTickets > 0 ? VentaBruta / TotalTickets : null;
 
     // Columnas adicionales por período - Mes Actual
     [JsonPropertyName("venta_mes_actual")]

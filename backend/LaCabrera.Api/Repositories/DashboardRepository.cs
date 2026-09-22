@@ -82,6 +82,7 @@ public class DashboardRepository : IDashboardRepository
                 SELECT
                     vt.FranquiciaId,
                     vt.FechaNegocio,
+                    SUM(vt.ImporteBruto) AS VentaBrutaLocal,
                     SUM(vt.ImporteNeto) AS VentaNetaLocal,
                     SUM(vt.CantidadCubiertos) AS TotalCubiertos,
                     COUNT(*) AS TotalTickets
@@ -96,6 +97,7 @@ public class DashboardRepository : IDashboardRepository
                 SELECT
                     vpd.FranquiciaId,
                     vpd.FechaNegocio,
+                    vpd.VentaBrutaLocal,
                     vpd.VentaNetaLocal,
                     vpd.TotalCubiertos,
                     vpd.TotalTickets,
@@ -129,7 +131,15 @@ public class DashboardRepository : IDashboardRepository
                 -- Agregar por franquicia y convertir a USD
                 SELECT
                     FranquiciaId,
+                    SUM(VentaBrutaLocal) AS VentaBrutaLocal,
                     SUM(VentaNetaLocal) AS VentaNetaLocal,
+                    SUM(
+                        CASE
+                            WHEN MonedaCodigo = 'USD' THEN VentaBrutaLocal
+                            WHEN UnidadesPorUsd IS NOT NULL AND UnidadesPorUsd > 0 THEN VentaBrutaLocal / UnidadesPorUsd
+                            ELSE 0
+                        END
+                    ) AS VentaBrutaUsd,
                     SUM(
                         CASE
                             WHEN MonedaCodigo = 'USD' THEN VentaNetaLocal
@@ -267,6 +277,7 @@ public class DashboardRepository : IDashboardRepository
                 CAST(CASE WHEN DATEDIFF(DAY, f.UltimaSincronizacion, GETDATE()) > 1 THEN 1 ELSE 0 END AS BIT) AS AlertaSincronizacion,
                 -- Período seleccionado
                 ISNULL(va.VentaNetaLocal, 0) AS VentaNetaLocal,
+                ISNULL(va.VentaBrutaUsd, 0) AS VentaBruta,
                 ISNULL(va.VentaNetaUsd, 0) AS VentaNeta,
                 ISNULL(va.TotalCubiertos, 0) AS TotalCubiertos,
                 ISNULL(va.TotalTickets, 0) AS TotalTickets,
@@ -664,7 +675,7 @@ public class DashboardRepository : IDashboardRepository
                 VentaNetaSinImpUsd,
                 CalidadImpuesto,
                 CalidadTipoCambio,
-                CASE WHEN CantidadTickets > 0 THEN VentaNetaLocal / CantidadTickets ELSE NULL END AS TicketPromedio,
+                CASE WHEN CantidadTickets > 0 THEN VentaBrutaLocal / CantidadTickets ELSE NULL END AS TicketPromedio,
                 CASE WHEN TotalCubiertos > 0 THEN VentaNetaLocal / TotalCubiertos ELSE NULL END AS VentaPorCubierto
             FROM fact.vw_VentasConsolidadasUsd
             WHERE 1=1";
@@ -757,7 +768,7 @@ public class DashboardRepository : IDashboardRepository
                 VentaNeta,
                 VentaNetaUsd,
                 VentaNetaSinImp,
-                CASE WHEN CantidadTickets > 0 THEN VentaNeta / CantidadTickets ELSE NULL END AS TicketPromedio,
+                CASE WHEN CantidadTickets > 0 THEN VentaBruta / CantidadTickets ELSE NULL END AS TicketPromedio,
                 PctSobreTotal
             FROM fact.vw_VentasPorMealPeriod
             WHERE 1=1";
