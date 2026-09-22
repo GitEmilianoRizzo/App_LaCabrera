@@ -462,15 +462,16 @@ export function DashboardHome() {
 
   // Calcular totales usando datos del dashboard (ya filtrados por fecha en el backend)
   const totals = useMemo(() => {
-    if (!dashboardData) return { ventaNeta: 0, tickets: 0, cubiertos: 0 }
+    if (!dashboardData) return { ventaBruta: 0, ventaNeta: 0, tickets: 0, cubiertos: 0 }
 
     return dashboardData.reduce(
       (acc, f) => ({
+        ventaBruta: acc.ventaBruta + (f.venta_bruta || 0),
         ventaNeta: acc.ventaNeta + (f.venta_neta || 0),
         tickets: acc.tickets + (f.total_tickets || 0),
         cubiertos: acc.cubiertos + (f.total_cubiertos || 0),
       }),
-      { ventaNeta: 0, tickets: 0, cubiertos: 0 }
+      { ventaBruta: 0, ventaNeta: 0, tickets: 0, cubiertos: 0 }
     )
   }, [dashboardData])
 
@@ -745,7 +746,7 @@ export function DashboardHome() {
         />
         <KpiCard
           title="Ticket Promedio"
-          value={totals.tickets > 0 ? totals.ventaNeta / totals.tickets : 0}
+          value={totals.tickets > 0 ? totals.ventaBruta / totals.tickets : 0}
           format="currency"
           icon={TrendingUp}
           iconColor="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
