@@ -22,6 +22,7 @@ export interface HomeDashboard {
   venta_neta_local: number
   total_cubiertos: number
   total_tickets: number
+  total_propinas: number
   venta_por_cubierto: number | null
   ticket_promedio: number | null
 
@@ -39,6 +40,10 @@ export interface HomeDashboard {
   venta_mes_anterior: number
   tickets_mes_anterior: number
   cubiertos_mes_anterior: number
+
+  // Propinas por mes
+  propinas_mes_actual: number
+  propinas_mes_anterior: number
 
   // Acumulado año previo (YTD del año anterior)
   venta_acum_anio_previo: number

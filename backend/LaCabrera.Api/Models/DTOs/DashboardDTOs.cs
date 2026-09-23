@@ -72,7 +72,11 @@ public class HomeDashboardDto
     public decimal? VentaPorCubierto => TotalCubiertos > 0 ? VentaNeta / TotalCubiertos : null;
 
     [JsonPropertyName("ticket_promedio")]
-    public decimal? TicketPromedio => TotalTickets > 0 ? VentaBruta / TotalTickets : null;
+    public decimal? TicketPromedio => TotalTickets > 0 ? VentaNeta / TotalTickets : null;  // Cambiado: usar VentaNeta (Net Sales + Gratuity) en vez de VentaBruta
+
+    // Propinas del período seleccionado
+    [JsonPropertyName("total_propinas")]
+    public decimal TotalPropinas { get; set; }
 
     // Columnas adicionales por período - Mes Actual
     [JsonPropertyName("venta_mes_actual")]
@@ -93,6 +97,13 @@ public class HomeDashboardDto
 
     [JsonPropertyName("cubiertos_mes_anterior")]
     public int CubiertosMesAnterior { get; set; }
+
+    // Propinas por mes
+    [JsonPropertyName("propinas_mes_actual")]
+    public decimal PropinasMesActual { get; set; }
+
+    [JsonPropertyName("propinas_mes_anterior")]
+    public decimal PropinasMesAnterior { get; set; }
 
     // Acumulado Año Previo (YTD del año anterior hasta el mes actual)
     [JsonPropertyName("venta_acum_anio_previo")]

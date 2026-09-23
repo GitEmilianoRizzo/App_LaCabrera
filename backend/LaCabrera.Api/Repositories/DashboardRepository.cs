@@ -99,6 +99,7 @@ public class DashboardRepository : IDashboardRepository
                     SUM(vt.ImporteBruto) AS VentaBrutaLocal,
                     SUM(vt.ImporteNeto) AS VentaNetaLocal,
                     SUM(vt.CantidadCubiertos) AS TotalCubiertos,
+                    SUM(ISNULL(vt.ImportePropina, 0)) AS TotalPropinas,
                     COUNT(*) AS TotalTickets
                 FROM fact.VentaTicket vt
                 WHERE vt.EstaAnulado = 0
@@ -114,6 +115,7 @@ public class DashboardRepository : IDashboardRepository
                     vpd.VentaBrutaLocal,
                     vpd.VentaNetaLocal,
                     vpd.TotalCubiertos,
+                    vpd.TotalPropinas,
                     vpd.TotalTickets,
                     m.CodigoISO AS MonedaCodigo,
                     tc.UnidadesPorUsd,
@@ -147,6 +149,7 @@ public class DashboardRepository : IDashboardRepository
                     FranquiciaId,
                     SUM(VentaBrutaLocal) AS VentaBrutaLocal,
                     SUM(VentaNetaLocal) AS VentaNetaLocal,
+                    SUM(TotalPropinas) AS TotalPropinas,
                     SUM(
                         CASE
                             WHEN MonedaCodigo = 'USD' THEN VentaBrutaLocal
@@ -161,6 +164,13 @@ public class DashboardRepository : IDashboardRepository
                             ELSE 0
                         END
                     ) AS VentaNetaUsd,
+                    SUM(
+                        CASE
+                            WHEN MonedaCodigo = 'USD' THEN TotalPropinas
+                            WHEN UnidadesPorUsd IS NOT NULL AND UnidadesPorUsd > 0 THEN TotalPropinas / UnidadesPorUsd
+                            ELSE 0
+                        END
+                    ) AS TotalPropinasUsd,
                     SUM(TotalCubiertos) AS TotalCubiertos,
                     SUM(TotalTickets) AS TotalTickets,
                     SUM(TasaDirecta) AS DiasTasaDirecta,
@@ -179,6 +189,13 @@ public class DashboardRepository : IDashboardRepository
                             ELSE 0
                         END
                     ) AS VentaUsd,
+                    SUM(
+                        CASE
+                            WHEN m.CodigoISO = 'USD' THEN ISNULL(vt.ImportePropina, 0)
+                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ISNULL(vt.ImportePropina, 0) / tc.UnidadesPorUsd
+                            ELSE 0
+                        END
+                    ) AS PropinasUsd,
                     SUM(vt.CantidadCubiertos) AS Cubiertos,
                     COUNT(*) AS Tickets
                 FROM fact.VentaTicket vt
@@ -206,6 +223,13 @@ public class DashboardRepository : IDashboardRepository
                             ELSE 0
                         END
                     ) AS VentaUsd,
+                    SUM(
+                        CASE
+                            WHEN m.CodigoISO = 'USD' THEN ISNULL(vt.ImportePropina, 0)
+                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ISNULL(vt.ImportePropina, 0) / tc.UnidadesPorUsd
+                            ELSE 0
+                        END
+                    ) AS PropinasUsd,
                     SUM(vt.CantidadCubiertos) AS Cubiertos,
                     COUNT(*) AS Tickets
                 FROM fact.VentaTicket vt
@@ -295,16 +319,19 @@ public class DashboardRepository : IDashboardRepository
                 ISNULL(va.VentaNetaUsd, 0) AS VentaNeta,
                 ISNULL(va.TotalCubiertos, 0) AS TotalCubiertos,
                 ISNULL(va.TotalTickets, 0) AS TotalTickets,
+                ISNULL(va.TotalPropinasUsd, 0) AS TotalPropinas,
                 ISNULL(va.DiasTasaDirecta, 0) AS DiasTasaDirecta,
                 ISNULL(va.DiasTasaArrastrada, 0) AS DiasTasaArrastrada,
                 -- Mes Actual
                 ISNULL(vma.VentaUsd, 0) AS VentaMesActual,
                 ISNULL(vma.Tickets, 0) AS TicketsMesActual,
                 ISNULL(vma.Cubiertos, 0) AS CubiertosMesActual,
+                ISNULL(vma.PropinasUsd, 0) AS PropinasMesActual,
                 -- Mes Anterior
                 ISNULL(vmant.VentaUsd, 0) AS VentaMesAnterior,
                 ISNULL(vmant.Tickets, 0) AS TicketsMesAnterior,
                 ISNULL(vmant.Cubiertos, 0) AS CubiertosMesAnterior,
+                ISNULL(vmant.PropinasUsd, 0) AS PropinasMesAnterior,
                 -- Año Previo YTD
                 ISNULL(vytdp.VentaUsd, 0) AS VentaAcumAnioPrevio,
                 ISNULL(vytdp.Tickets, 0) AS TicketsAcumAnioPrevio,

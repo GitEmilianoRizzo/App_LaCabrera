@@ -149,6 +149,14 @@ export function DashboardHome() {
       const calidad = f.calidad_conversion || (dias_sin_tasa === 0 ? 'OK' : dias_sin_tasa < dias_con_tasa ? 'PARCIAL' : 'SIN_TASA')
       // % vs Palermo: (venta franquicia / venta palermo) * 100
       const pct_vs_palermo = ventaPalermoRef > 0 ? (venta_neta / ventaPalermoRef) * 100 : 0
+      const total_propinas = f.total_propinas || 0
+      const propinas_mes_actual = f.propinas_mes_actual || 0
+      const propinas_mes_anterior = f.propinas_mes_anterior || 0
+      const cubiertos_mes_actual = f.cubiertos_mes_actual || 0
+      const cubiertos_mes_anterior = f.cubiertos_mes_anterior || 0
+      const tickets_mes_actual = f.tickets_mes_actual || 0
+      const tickets_mes_anterior = f.tickets_mes_anterior || 0
+
       return {
         franquicia_id: f.franquicia_id,
         franquicia_codigo: f.franquicia_codigo,
@@ -158,11 +166,15 @@ export function DashboardHome() {
         ciudad: f.ciudad,
         moneda_codigo: f.moneda_codigo,
         venta_bruta,  // USD - Con impuestos
-        venta_neta,  // USD - Período seleccionado
+        venta_neta,  // USD - Período seleccionado (Net Sales + Gratuity)
         venta_neta_local,
         total_tickets,
         total_cubiertos,
-        ticket_promedio: total_tickets > 0 ? venta_bruta / total_tickets : 0,  // Usar venta bruta (con impuestos)
+        total_propinas,  // Propinas del período
+        ticket_promedio: total_tickets > 0 ? venta_neta / total_tickets : 0,  // $/Ticket período
+        venta_por_cubierto: total_cubiertos > 0 ? venta_neta / total_cubiertos : 0,  // $/Cubierto período
+        venta_por_ticket_anterior: tickets_mes_anterior > 0 ? (f.venta_mes_anterior || 0) / tickets_mes_anterior : 0,  // $/Ticket mes anterior
+        venta_por_cubierto_anterior: cubiertos_mes_anterior > 0 ? (f.venta_mes_anterior || 0) / cubiertos_mes_anterior : 0,  // $/Cubierto mes anterior
         tickets_por_dia: diasRango > 0 ? total_tickets / diasRango : 0,
         cubiertos_por_ticket: total_tickets > 0 ? total_cubiertos / total_tickets : 0,
         cubiertos_por_dia: diasRango > 0 ? total_cubiertos / diasRango : 0,
@@ -172,11 +184,15 @@ export function DashboardHome() {
         dias_sin_tasa,
         // Nuevos campos por período
         venta_mes_actual: f.venta_mes_actual || 0,
-        tickets_mes_actual: f.tickets_mes_actual || 0,
-        cubiertos_mes_actual: f.cubiertos_mes_actual || 0,
+        tickets_mes_actual,
+        cubiertos_mes_actual,
+        propinas_mes_actual,
+        cub_prom_mes_actual: tickets_mes_actual > 0 ? cubiertos_mes_actual / tickets_mes_actual : 0,
         venta_mes_anterior: f.venta_mes_anterior || 0,
-        tickets_mes_anterior: f.tickets_mes_anterior || 0,
-        cubiertos_mes_anterior: f.cubiertos_mes_anterior || 0,
+        tickets_mes_anterior,
+        cubiertos_mes_anterior,
+        propinas_mes_anterior,
+        cub_prom_mes_anterior: tickets_mes_anterior > 0 ? cubiertos_mes_anterior / tickets_mes_anterior : 0,
         venta_acum_anio_previo: f.venta_acum_anio_previo || 0,
         tickets_acum_anio_previo: f.tickets_acum_anio_previo || 0,
         cubiertos_acum_anio_previo: f.cubiertos_acum_anio_previo || 0,
@@ -328,14 +344,6 @@ export function DashboardHome() {
       ),
     },
     {
-      id: 'ticket_promedio',
-      header: 'Ticket Prom.',
-      accessorKey: 'ticket_promedio',
-      align: 'right',
-      sortable: true,
-      cell: (row) => formatCurrency(row.ticket_promedio, 'USD'),
-    },
-    {
       id: 'pct_vs_palermo',
       header: '% vs Palermo',
       accessorKey: 'pct_vs_palermo',
@@ -409,9 +417,58 @@ export function DashboardHome() {
       accessorKey: 'cubiertos_mes_anterior',
       align: 'right',
       sortable: true,
+      defaultVisible: false,
       cell: (row) => (
         <span className="text-muted-foreground" title="Mes anterior completo">
           {formatNumber(row.cubiertos_mes_anterior)}
+        </span>
+      ),
+    },
+    {
+      id: 'venta_por_cubierto_periodo',
+      header: '$/Cub (Per)',
+      accessorKey: 'venta_por_cubierto',
+      align: 'right',
+      sortable: true,
+      cell: (row) => (
+        <span className="font-medium text-green-600 dark:text-green-400" title="Venta Neta / Cubiertos del período">
+          {formatCurrency(row.venta_por_cubierto, 'USD')}
+        </span>
+      ),
+    },
+    {
+      id: 'venta_por_cubierto_anterior',
+      header: '$/Cub (Ant)',
+      accessorKey: 'venta_por_cubierto_anterior',
+      align: 'right',
+      sortable: true,
+      cell: (row) => (
+        <span className="text-muted-foreground" title="Venta Neta / Cubiertos mes anterior">
+          {formatCurrency(row.venta_por_cubierto_anterior, 'USD')}
+        </span>
+      ),
+    },
+    {
+      id: 'venta_por_ticket_periodo',
+      header: '$/Ticket (Per)',
+      accessorKey: 'ticket_promedio',
+      align: 'right',
+      sortable: true,
+      cell: (row) => (
+        <span className="font-medium text-blue-600 dark:text-blue-400" title="Venta Neta / Tickets del período">
+          {formatCurrency(row.ticket_promedio, 'USD')}
+        </span>
+      ),
+    },
+    {
+      id: 'venta_por_ticket_anterior',
+      header: '$/Ticket (Ant)',
+      accessorKey: 'venta_por_ticket_anterior',
+      align: 'right',
+      sortable: true,
+      cell: (row) => (
+        <span className="text-muted-foreground" title="Venta Neta / Tickets mes anterior">
+          {formatCurrency(row.venta_por_ticket_anterior, 'USD')}
         </span>
       ),
     },
@@ -426,17 +483,6 @@ export function DashboardHome() {
         <span title="Acumulado año actual">
           {formatNumber(row.cubiertos_acum_anio_actual)}
         </span>
-      ),
-    },
-    {
-      id: 'cubiertos_por_ticket',
-      header: 'Cub/Ticket',
-      accessorKey: 'cubiertos_por_ticket',
-      align: 'right',
-      sortable: true,
-      defaultVisible: false,
-      cell: (row) => (
-        <span className="text-muted-foreground">{formatNumber(row.cubiertos_por_ticket, 1)}</span>
       ),
     },
     {
@@ -746,7 +792,7 @@ export function DashboardHome() {
         />
         <KpiCard
           title="Ticket Promedio"
-          value={totals.tickets > 0 ? totals.ventaBruta / totals.tickets : 0}
+          value={totals.tickets > 0 ? totals.ventaNeta / totals.tickets : 0}
           format="currency"
           icon={TrendingUp}
           iconColor="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
