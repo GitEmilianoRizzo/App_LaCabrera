@@ -138,7 +138,12 @@ public class IngestionRepository : IIngestionRepository
         parameters.Add("ImporteImpuesto", ticket.Amounts.TaxAmount ?? 0);
         parameters.Add("ImporteServicio", ticket.Amounts.ServiceChargeAmount ?? 0);
         parameters.Add("ImportePropina", ticket.Amounts.TipAmount ?? 0);
-        parameters.Add("ImporteTotalPagado", ticket.Amounts.TotalPaidAmount ?? 0);
+
+        // Calcular ImporteTotalPagado si no viene en el JSON
+        // Total = NetAmount + Tips + ServiceCharge (NetAmount ya incluye impuestos si amounts_include_tax=true)
+        var totalPagado = ticket.Amounts.TotalPaidAmount
+            ?? (ticket.Amounts.NetAmount + (ticket.Amounts.TipAmount ?? 0) + (ticket.Amounts.ServiceChargeAmount ?? 0));
+        parameters.Add("ImporteTotalPagado", totalPagado);
 
         // v1.2: Tax axis
         parameters.Add("ImporteNetoSinImpuesto", importeNetoSinImpuesto);

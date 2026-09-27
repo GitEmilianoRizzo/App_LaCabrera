@@ -33,7 +33,7 @@ interface TxtParserUploadModalProps {
 type ModalState = 'upload' | 'parsing' | 'preview' | 'ingesting' | 'complete'
 
 // Supported file extensions
-const ALLOWED_EXTENSIONS = ['.txt', '.html', '.htm', '.csv']
+const ALLOWED_EXTENSIONS = ['.txt', '.html', '.htm', '.csv', '.json']
 
 const isAllowedFile = (filename: string): boolean => {
   const lower = filename.toLowerCase()
@@ -155,7 +155,7 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
             Subir Archivos - {nodo.nombre}
           </DialogTitle>
           <DialogDescription>
-            Suba archivos (HTML, CSV, TXT) para parsear e ingestar datos de ventas
+            Suba archivos (HTML, CSV, TXT, JSON) para parsear e ingestar datos de ventas
           </DialogDescription>
         </DialogHeader>
 
@@ -192,13 +192,13 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
                 <input
                   type="file"
                   className="hidden"
-                  accept=".txt,.html,.htm,.csv"
+                  accept=".txt,.html,.htm,.csv,.json"
                   multiple
                   onChange={handleFileSelect}
                 />
               </label>
               <p className="text-xs text-gray-400 mt-2">
-                Formatos soportados: HTML, CSV, TXT
+                Formatos soportados: HTML, CSV, TXT, JSON
               </p>
             </div>
 
