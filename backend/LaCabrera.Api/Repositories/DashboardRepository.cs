@@ -93,12 +93,12 @@ public class DashboardRepository : IDashboardRepository
 
             WITH VentasPorDia AS (
                 -- Ventas agrupadas por franquicia y fecha (para el período seleccionado)
-                -- Usamos COALESCE(ImporteNetoSinImpuesto, ImporteNeto) para obtener valor sin impuestos cuando está disponible
+                -- VentaNeta = ImporteNeto - ImporteServicio (Gratuity) para excluir service charge
                 SELECT
                     vt.FranquiciaId,
                     vt.FechaNegocio,
                     SUM(vt.ImporteBruto) AS VentaBrutaLocal,
-                    SUM(COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)) AS VentaNetaLocal,
+                    SUM(COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) AS VentaNetaLocal,
                     SUM(vt.CantidadCubiertos) AS TotalCubiertos,
                     SUM(ISNULL(vt.ImportePropina, 0)) AS TotalPropinas,
                     COUNT(*) AS TotalTickets
@@ -179,14 +179,14 @@ public class DashboardRepository : IDashboardRepository
                 FROM VentasConTC
                 GROUP BY FranquiciaId
             ),
-            -- Ventas del Mes Actual
+            -- Ventas del Mes Actual (VentaNeta excluye Gratuity/ImporteServicio)
             VentasMesActual AS (
                 SELECT
                     vt.FranquiciaId,
                     SUM(
                         CASE
-                            WHEN m.CodigoISO = 'USD' THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
-                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) / tc.UnidadesPorUsd
+                            WHEN m.CodigoISO = 'USD' THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
+                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) / tc.UnidadesPorUsd
                             ELSE 0
                         END
                     ) AS VentaUsd,
@@ -213,14 +213,14 @@ public class DashboardRepository : IDashboardRepository
                   AND vt.FechaNegocio <= @FechaRef
                 GROUP BY vt.FranquiciaId
             ),
-            -- Ventas del Mes Anterior
+            -- Ventas del Mes Anterior (VentaNeta excluye Gratuity/ImporteServicio)
             VentasMesAnterior AS (
                 SELECT
                     vt.FranquiciaId,
                     SUM(
                         CASE
-                            WHEN m.CodigoISO = 'USD' THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
-                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) / tc.UnidadesPorUsd
+                            WHEN m.CodigoISO = 'USD' THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
+                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) / tc.UnidadesPorUsd
                             ELSE 0
                         END
                     ) AS VentaUsd,
@@ -247,14 +247,14 @@ public class DashboardRepository : IDashboardRepository
                   AND vt.FechaNegocio <= @FinMesAnterior
                 GROUP BY vt.FranquiciaId
             ),
-            -- Acumulado Año Actual (YTD)
+            -- Acumulado Año Actual (YTD) - VentaNeta excluye Gratuity/ImporteServicio
             VentasYTDActual AS (
                 SELECT
                     vt.FranquiciaId,
                     SUM(
                         CASE
-                            WHEN m.CodigoISO = 'USD' THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
-                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) / tc.UnidadesPorUsd
+                            WHEN m.CodigoISO = 'USD' THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
+                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) / tc.UnidadesPorUsd
                             ELSE 0
                         END
                     ) AS VentaUsd,
@@ -274,14 +274,14 @@ public class DashboardRepository : IDashboardRepository
                   AND vt.FechaNegocio <= @FechaRef
                 GROUP BY vt.FranquiciaId
             ),
-            -- Acumulado Año Previo (YTD del año anterior hasta el mismo mes/día)
+            -- Acumulado Año Previo (YTD del año anterior) - VentaNeta excluye Gratuity/ImporteServicio
             VentasYTDPrevio AS (
                 SELECT
                     vt.FranquiciaId,
                     SUM(
                         CASE
-                            WHEN m.CodigoISO = 'USD' THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
-                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) / tc.UnidadesPorUsd
+                            WHEN m.CodigoISO = 'USD' THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
+                            WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) / tc.UnidadesPorUsd
                             ELSE 0
                         END
                     ) AS VentaUsd,
@@ -975,8 +975,10 @@ public class DashboardRepository : IDashboardRepository
                 m.CodigoISO AS MonedaCodigo,
                 vt.ImporteBruto,
                 vt.ImporteDescuento,
-                COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) AS ImporteNeto,
+                -- ImporteNeto excluye Gratuity (ImporteServicio) para coincidir con Net Sales
+                (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) AS ImporteNeto,
                 vt.ImporteImpuesto,
+                vt.ImporteServicio AS ImporteGratuity,
                 vt.ImportePropina,
                 vt.ImporteTotalPagado,
                 vt.TiempoConsumoMinutos,
@@ -995,9 +997,9 @@ public class DashboardRepository : IDashboardRepository
                     ELSE vt.ImporteDescuento
                 END AS ImporteDescuentoUsd,
                 CASE
-                    WHEN m.CodigoISO = 'USD' THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
-                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) / tc.UnidadesPorUsd, 2)
-                    ELSE COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
+                    WHEN m.CodigoISO = 'USD' THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND((COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) / tc.UnidadesPorUsd, 2)
+                    ELSE (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
                 END AS ImporteNetoUsd,
                 CASE
                     WHEN m.CodigoISO = 'USD' THEN vt.ImporteImpuesto
@@ -1101,11 +1103,12 @@ public class DashboardRepository : IDashboardRepository
                 vt.NombreMozo,
                 vt.CantidadCubiertos,
                 m.CodigoISO AS MonedaCodigo,
-                -- Importes en moneda local (usamos ImporteNetoSinImpuesto cuando está disponible)
+                -- Importes en moneda local (ImporteNeto excluye Gratuity para coincidir con Net Sales)
                 vt.ImporteBruto AS ImporteBrutoLocal,
                 vt.ImporteDescuento AS ImporteDescuentoLocal,
-                COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) AS ImporteNetoLocal,
+                (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) AS ImporteNetoLocal,
                 vt.ImporteImpuesto AS ImporteImpuestoLocal,
+                vt.ImporteServicio AS ImporteGratuityLocal,
                 vt.ImportePropina AS ImportePropinaLocal,
                 vt.ImporteTotalPagado AS ImporteTotalLocal,
                 -- Tipo de cambio (UnidadesPorUsd = cuántas unidades de moneda local por 1 USD)
@@ -1122,9 +1125,9 @@ public class DashboardRepository : IDashboardRepository
                     ELSE vt.ImporteDescuento
                 END AS ImporteDescuentoUsd,
                 CASE
-                    WHEN m.CodigoISO = 'USD' THEN COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
-                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND(COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) / tc.UnidadesPorUsd, 2)
-                    ELSE COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto)
+                    WHEN m.CodigoISO = 'USD' THEN (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ROUND((COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) / tc.UnidadesPorUsd, 2)
+                    ELSE (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0))
                 END AS ImporteNetoUsd,
                 CASE
                     WHEN m.CodigoISO = 'USD' THEN vt.ImporteImpuesto
@@ -1264,6 +1267,7 @@ public class DashboardRepository : IDashboardRepository
         using var connection = _connectionFactory.CreateConnection();
 
         // Query simplificado que agrupa por hora de apertura del ticket
+        // VentaNeta excluye Gratuity/ImporteServicio para coincidir con Net Sales de Toast
         var sql = @"
             WITH TicketsConHora AS (
                 SELECT
@@ -1271,7 +1275,7 @@ public class DashboardRepository : IDashboardRepository
                     vt.FranquiciaId,
                     f.Nombre AS FranquiciaNombre,
                     ISNULL(vt.CantidadCubiertos, 0) AS Cubiertos,
-                    COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) AS VentaNeta,
+                    (COALESCE(vt.ImporteNetoSinImpuesto, vt.ImporteNeto) - ISNULL(vt.ImporteServicio, 0)) AS VentaNeta,
                     m.CodigoISO AS MonedaCodigo,
                     vt.FechaNegocio
                 FROM fact.VentaTicket vt

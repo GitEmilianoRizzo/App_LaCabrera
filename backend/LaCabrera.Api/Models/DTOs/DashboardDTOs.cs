@@ -862,6 +862,9 @@ public class TransaccionDto
     [JsonPropertyName("importe_impuesto")]
     public decimal ImporteImpuesto { get; set; }
 
+    [JsonPropertyName("importe_gratuity")]
+    public decimal ImporteGratuity { get; set; }
+
     [JsonPropertyName("importe_propina")]
     public decimal ImportePropina { get; set; }
 
@@ -998,6 +1001,7 @@ public class TransaccionExportDto
     public decimal ImporteDescuentoLocal { get; set; }
     public decimal ImporteNetoLocal { get; set; }
     public decimal ImporteImpuestoLocal { get; set; }
+    public decimal ImporteGratuityLocal { get; set; }
     public decimal ImportePropinaLocal { get; set; }
     public decimal ImporteTotalLocal { get; set; }
 
