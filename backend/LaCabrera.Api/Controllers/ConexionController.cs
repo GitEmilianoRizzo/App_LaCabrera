@@ -13,6 +13,7 @@ public class ConexionController : ControllerBase
     private readonly IConexionService _conexionService;
     private readonly IAgoraExtractorService _agoraExtractor;
     private readonly IVinsonExtractorService _vinsonExtractor;
+    private readonly IAyresItExtractorService _ayresItExtractor;
     private readonly ITxtParserService _txtParserService;
     private readonly IIngestionService _ingestionService;
 
@@ -20,12 +21,14 @@ public class ConexionController : ControllerBase
         IConexionService conexionService,
         IAgoraExtractorService agoraExtractor,
         IVinsonExtractorService vinsonExtractor,
+        IAyresItExtractorService ayresItExtractor,
         ITxtParserService txtParserService,
         IIngestionService ingestionService)
     {
         _conexionService = conexionService;
         _agoraExtractor = agoraExtractor;
         _vinsonExtractor = vinsonExtractor;
+        _ayresItExtractor = ayresItExtractor;
         _txtParserService = txtParserService;
         _ingestionService = ingestionService;
     }
@@ -240,9 +243,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _vinsonExtractor.EjecutarExtraccionAsync(id, fechaNegocio);
         }
+        else if (tipoConector == "AYRESIT")
+        {
+            resultado = await _ayresItExtractor.EjecutarExtraccionAsync(id, fechaNegocio);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT" });
         }
 
         if (resultado.Success)
@@ -294,9 +301,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _vinsonExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta);
         }
+        else if (tipoConector == "AYRESIT")
+        {
+            resultado = await _ayresItExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT" });
         }
 
         if (resultado.Success)
@@ -336,9 +347,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _agoraExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
         }
-        else if (tipoConector.StartsWith("VINSON") || tipoConector == "AYRESIT")
+        else if (tipoConector.StartsWith("VINSON"))
         {
             resultado = await _vinsonExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
+        }
+        else if (tipoConector == "AYRESIT")
+        {
+            resultado = await _ayresItExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
         }
         else
         {

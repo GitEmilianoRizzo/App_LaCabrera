@@ -55,6 +55,7 @@ builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
 builder.Services.AddScoped<IConexionService, ConexionService>();
 builder.Services.AddScoped<IAgoraExtractorService, AgoraExtractorService>();
 builder.Services.AddScoped<IVinsonExtractorService, VinsonExtractorService>();
+builder.Services.AddScoped<IAyresItExtractorService, AyresItExtractorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddHttpClient<ITxtParserService, TxtParserService>(client =>
 {
