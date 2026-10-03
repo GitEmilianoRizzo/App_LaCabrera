@@ -444,6 +444,7 @@ public class AyresItExtractorService : IAyresItExtractorService
         // Determinar estado
         var estaAnulado = venta.Estado == "X" || venta.Estado == "A";
         var estaCerrado = venta.Estado == "C";
+        var estadoTicket = estaAnulado ? "ANULADO" : (estaCerrado ? "CERRADO" : "ABIERTO");
 
         // Calcular montos
         var importeBruto = venta.FacturaMontoTotal ?? 0;
@@ -464,7 +465,7 @@ public class AyresItExtractorService : IAyresItExtractorService
                 ImporteBruto, ImporteNetoSinImpuesto, ImporteImpuesto, ImportePropina,
                 ImporteNeto, ImporteDescuento, ImporteTotalPagado,
                 TieneDescuento, EstaAnulado, TieneDatosCubiertos, TieneDatosMozo, TieneDatosMesa,
-                FuenteSistema
+                FuenteSistema, Estado
             ) VALUES (
                 @FranquiciaId, @BatchId, @ExternalTicketId, @NumeroTicket,
                 @FechaNegocio, @FechaApertura, @FechaCierre,
@@ -473,7 +474,7 @@ public class AyresItExtractorService : IAyresItExtractorService
                 @ImporteBruto, @ImporteNetoSinImpuesto, @ImporteImpuesto, @ImporteServicio,
                 @ImporteNeto, 0, @ImporteBruto,
                 0, @EstaAnulado, @TieneCubiertos, @TieneMozo, @TieneMesa,
-                'AYRESIT'
+                'AYRESIT', @Estado
             );
             SELECT SCOPE_IDENTITY();",
             new
@@ -498,7 +499,8 @@ public class AyresItExtractorService : IAyresItExtractorService
                 EstaAnulado = estaAnulado,
                 TieneCubiertos = (venta.CantidadConsumidores ?? 0) > 0,
                 TieneMozo = venta.IdVendedor.HasValue,
-                TieneMesa = !string.IsNullOrEmpty(venta.SectorTipo)
+                TieneMesa = !string.IsNullOrEmpty(venta.SectorTipo),
+                Estado = estadoTicket
             });
 
         // Procesar items
