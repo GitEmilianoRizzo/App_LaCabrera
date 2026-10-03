@@ -529,7 +529,7 @@ public class AyresItExtractorService : IAyresItExtractorService
                         TicketId = ticketId,
                         BatchId = batchId,
                         FranquiciaId = franquiciaId,
-                        ExternalLineId = item.IdVentaItem?.ToString() ?? item.IdComandaItem?.ToString() ?? lineasProcesadas.ToString(),
+                        ExternalLineId = $"{venta.IdVenta}-{item.IdArticulo}-{lineasProcesadas}",
                         CodigoProducto = item.IdArticulo.ToString(),
                         NombreProducto = item.IdArticulo.ToString(), // TODO: obtener nombre de catálogo
                         Cantidad = item.Cantidad ?? 1,
