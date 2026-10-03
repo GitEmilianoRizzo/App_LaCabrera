@@ -465,7 +465,7 @@ public class AyresItExtractorService : IAyresItExtractorService
                 ImporteBruto, ImporteNetoSinImpuesto, ImporteImpuesto, ImportePropina,
                 ImporteNeto, ImporteDescuento, ImporteTotalPagado,
                 TieneDescuento, EstaAnulado, TieneDatosCubiertos, TieneDatosMozo, TieneDatosMesa,
-                FuenteSistema, Estado
+                FuenteSistema, Estado, CodigoMoneda
             ) VALUES (
                 @FranquiciaId, @BatchId, @ExternalTicketId, @NumeroTicket,
                 @FechaNegocio, @FechaApertura, @FechaCierre,
@@ -474,7 +474,7 @@ public class AyresItExtractorService : IAyresItExtractorService
                 @ImporteBruto, @ImporteNetoSinImpuesto, @ImporteImpuesto, @ImporteServicio,
                 @ImporteNeto, 0, @ImporteBruto,
                 0, @EstaAnulado, @TieneCubiertos, @TieneMozo, @TieneMesa,
-                'AYRESIT', @Estado
+                'AYRESIT', @Estado, @CodigoMoneda
             );
             SELECT SCOPE_IDENTITY();",
             new
@@ -500,7 +500,8 @@ public class AyresItExtractorService : IAyresItExtractorService
                 TieneCubiertos = (venta.CantidadConsumidores ?? 0) > 0,
                 TieneMozo = venta.IdVendedor.HasValue,
                 TieneMesa = !string.IsNullOrEmpty(venta.SectorTipo),
-                Estado = estadoTicket
+                Estado = estadoTicket,
+                CodigoMoneda = moneda
             });
 
         // Procesar items
