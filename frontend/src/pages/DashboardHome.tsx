@@ -128,10 +128,6 @@ export function DashboardHome() {
   const tableData = useMemo(() => {
     if (!dashboardData) return []
 
-    // Obtener venta de Palermo para calcular % vs Palermo
-    const palermo = dashboardData.find(f => f.franquicia_codigo === 'LC_PALERMO')
-    const ventaPalermoRef = palermo?.venta_neta || 0
-
     // Filtrar por país si es necesario (filtro local adicional)
     let data = dashboardData
     if (filters.pais) {
@@ -148,7 +144,9 @@ export function DashboardHome() {
       const dias_sin_tasa = f.dias_sin_tasa || 0
       const calidad = f.calidad_conversion || (dias_sin_tasa === 0 ? 'OK' : dias_sin_tasa < dias_con_tasa ? 'PARCIAL' : 'SIN_TASA')
       // % vs Palermo: (venta franquicia / venta palermo) * 100
-      const pct_vs_palermo = ventaPalermoRef > 0 ? (venta_neta / ventaPalermoRef) * 100 : 0
+      // Las franquicias Palermo no muestran este % (son parte de la referencia)
+      const esPalermo = PALERMO_CODIGOS.includes(f.franquicia_codigo)
+      const pct_vs_palermo = esPalermo ? null : (ventaPalermo > 0 ? (venta_neta / ventaPalermo) * 100 : 0)
       const total_propinas = f.total_propinas || 0
       const propinas_mes_actual = f.propinas_mes_actual || 0
       const propinas_mes_anterior = f.propinas_mes_anterior || 0
@@ -201,7 +199,7 @@ export function DashboardHome() {
         cubiertos_acum_anio_actual: f.cubiertos_acum_anio_actual || 0,
       }
     })
-  }, [dashboardData, filters.pais, diasRango])
+  }, [dashboardData, filters.pais, diasRango, ventaPalermo])
 
   // Definición de columnas para la tabla
   type TableRow = typeof tableData[number]
@@ -351,9 +349,9 @@ export function DashboardHome() {
       sortable: true,
       cell: (row) => {
         const pct = row.pct_vs_palermo
-        const isPalermo = row.franquicia_codigo === 'LC_PALERMO'
-        if (isPalermo) {
-          return <span className="font-bold text-amber-600 dark:text-amber-400">100% (Ref)</span>
+        // Palermo Norte y Sur son parte de la referencia, no muestran %
+        if (pct === null) {
+          return <span className="font-bold text-emerald-600 dark:text-emerald-400" title="Forma parte de la referencia Palermo">Ref</span>
         }
         const colorClass = pct >= 100
           ? 'text-green-600 dark:text-green-400'
@@ -361,7 +359,7 @@ export function DashboardHome() {
           ? 'text-amber-600 dark:text-amber-400'
           : 'text-red-600 dark:text-red-400'
         return (
-          <span className={`font-medium ${colorClass}`} title={`Comparado con Palermo Central`}>
+          <span className={`font-medium ${colorClass}`} title="Comparado con Palermo (Norte + Sur)">
             {formatNumber(pct, 1)}%
           </span>
         )
@@ -521,14 +519,17 @@ export function DashboardHome() {
     )
   }, [dashboardData])
 
-  // Obtener datos de Palermo (Central) para comparación
-  const palermoData = useMemo(() => {
-    if (!dashboardData) return null
-    // Buscar franquicia Palermo por código LC_PALERMO
-    return dashboardData.find(f => f.franquicia_codigo === 'LC_PALERMO') || null
+  // Obtener datos de Palermo (suma de Norte + Sur) para comparación
+  const ventaPalermo = useMemo(() => {
+    if (!dashboardData) return 0
+    // Sumar venta_neta de Palermo Norte y Palermo Sur
+    const palermoNorte = dashboardData.find(f => f.franquicia_codigo === 'PALERMO_NORTE')
+    const palermoSur = dashboardData.find(f => f.franquicia_codigo === 'PALERMO_SUR')
+    return (palermoNorte?.venta_neta || 0) + (palermoSur?.venta_neta || 0)
   }, [dashboardData])
 
-  const ventaPalermo = palermoData?.venta_neta || 0
+  // Códigos de franquicias que conforman la referencia Palermo
+  const PALERMO_CODIGOS = ['PALERMO_NORTE', 'PALERMO_SUR']
 
   // Footer de totales simplificado (los totales completos están en los KPIs)
   const tableFooter = null // Deshabilitado - los totales ya se muestran en los KPI cards
@@ -803,7 +804,7 @@ export function DashboardHome() {
           format="currency"
           icon={Store}
           iconColor="bg-white/30 text-white"
-          subtitle={ventaPalermo > 0 ? 'Central de comparación' : 'Sin datos disponibles'}
+          subtitle={ventaPalermo > 0 ? 'Norte + Sur del período' : 'Sin datos disponibles'}
           className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white border-emerald-600 [&_p]:text-white [&_.text-muted-foreground]:text-emerald-100"
         />
       </div>
