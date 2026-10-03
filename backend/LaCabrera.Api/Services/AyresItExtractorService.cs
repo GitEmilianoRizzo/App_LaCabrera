@@ -432,8 +432,8 @@ public class AyresItExtractorService : IAyresItExtractorService
         // Verificar si el ticket ya existe
         var existingTicketId = await connection.QueryFirstOrDefaultAsync<long?>(@"
             SELECT VentaTicketId FROM fact.VentaTicket
-            WHERE FranquiciaId = @FranquiciaId AND TicketExternoId = @TicketExternoId",
-            new { FranquiciaId = franquiciaId, TicketExternoId = venta.IdVenta.ToString() });
+            WHERE FranquiciaId = @FranquiciaId AND ExternalTicketId = @ExternalTicketId",
+            new { FranquiciaId = franquiciaId, ExternalTicketId = venta.IdVenta.ToString() });
 
         if (existingTicketId.HasValue)
         {
@@ -457,21 +457,21 @@ public class AyresItExtractorService : IAyresItExtractorService
         // Insertar ticket
         var ticketId = await connection.QuerySingleAsync<long>(@"
             INSERT INTO fact.VentaTicket (
-                FranquiciaId, IngestionBatchId, TicketExternoId, NumeroTicket,
-                FechaNegocio, FechaHoraApertura, FechaHoraCierre,
-                CantidadCubiertos, MesaNumero, SectorNombre,
-                MozoId, MozoNombre, MozoExternoId,
+                FranquiciaId, IngestionBatchId, ExternalTicketId, NumeroTicket,
+                FechaNegocio, FechaApertura, FechaCierre,
+                CantidadCubiertos, NumeroMesa, AreaMesa,
+                MozoId, NombreMozo,
                 ImporteBruto, ImporteNetoSinImpuesto, ImporteImpuesto, ImportePropina,
-                ImporteVentaNeta, ImporteDescuento, ImporteTotalPagado,
-                TieneDescuento, EstaAnulado, TieneCubiertos, TieneMozo, TieneMesa,
-                OrigenDatos
+                ImporteNeto, ImporteDescuento, ImporteTotalPagado,
+                TieneDescuento, EstaAnulado, TieneDatosCubiertos, TieneDatosMozo, TieneDatosMesa,
+                FuenteSistema
             ) VALUES (
-                @FranquiciaId, @BatchId, @TicketExternoId, @NumeroTicket,
+                @FranquiciaId, @BatchId, @ExternalTicketId, @NumeroTicket,
                 @FechaNegocio, @FechaApertura, @FechaCierre,
                 @Cubiertos, @Mesa, @Sector,
-                @MozoId, @MozoNombre, @MozoExternoId,
-                @ImporteBruto, @ImporteNeto, @ImporteImpuesto, @ImporteServicio,
-                @ImporteVentaNeta, 0, @ImporteBruto,
+                @MozoId, @MozoNombre,
+                @ImporteBruto, @ImporteNetoSinImpuesto, @ImporteImpuesto, @ImporteServicio,
+                @ImporteNeto, 0, @ImporteBruto,
                 0, @EstaAnulado, @TieneCubiertos, @TieneMozo, @TieneMesa,
                 'AYRESIT'
             );
@@ -480,7 +480,7 @@ public class AyresItExtractorService : IAyresItExtractorService
             {
                 FranquiciaId = franquiciaId,
                 BatchId = batchId,
-                TicketExternoId = venta.IdVenta.ToString(),
+                ExternalTicketId = venta.IdVenta.ToString(),
                 NumeroTicket = venta.FacturaNumero?.ToString() ?? venta.IdVenta.ToString(),
                 FechaNegocio = fechaNegocio.Value,
                 FechaApertura = fechaApertura,
@@ -490,12 +490,11 @@ public class AyresItExtractorService : IAyresItExtractorService
                 Sector = venta.SectorTipo,
                 MozoId = venta.IdVendedor?.ToString(),
                 MozoNombre = (string?)null,
-                MozoExternoId = venta.IdVendedor?.ToString(),
                 ImporteBruto = importeBruto,
-                ImporteNeto = importeNeto,
+                ImporteNetoSinImpuesto = importeNeto,
                 ImporteImpuesto = importeImpuestos,
                 ImporteServicio = importeServicio,
-                ImporteVentaNeta = importeVentaNeta,
+                ImporteNeto = importeVentaNeta,
                 EstaAnulado = estaAnulado,
                 TieneCubiertos = (venta.CantidadConsumidores ?? 0) > 0,
                 TieneMozo = venta.IdVendedor.HasValue,
@@ -512,27 +511,26 @@ public class AyresItExtractorService : IAyresItExtractorService
 
                 await connection.ExecuteAsync(@"
                     INSERT INTO fact.VentaTicketDetalle (
-                        VentaTicketId, ProductoExternoId, ProductoNombre,
+                        VentaTicketId, CodigoProducto, NombreProducto,
                         Cantidad, PrecioUnitario, ImporteBruto, ImporteNeto,
-                        ImporteDescuento, TieneDescuento, CategoriaNombre, TipoPlatoNombre
+                        ImporteDescuento, TieneDescuento, CategoriaProducto
                     ) VALUES (
-                        @TicketId, @ProductoId, @ProductoNombre,
+                        @TicketId, @CodigoProducto, @NombreProducto,
                         @Cantidad, @PrecioUnitario, @ImporteBruto, @ImporteNeto,
-                        @Descuento, @TieneDescuento, @Categoria, @TipoPlato
+                        @Descuento, @TieneDescuento, @Categoria
                     )",
                     new
                     {
                         TicketId = ticketId,
-                        ProductoId = item.IdArticulo.ToString(),
-                        ProductoNombre = item.IdArticulo.ToString(), // TODO: obtener nombre de catálogo
+                        CodigoProducto = item.IdArticulo.ToString(),
+                        NombreProducto = item.IdArticulo.ToString(), // TODO: obtener nombre de catálogo
                         Cantidad = item.Cantidad ?? 1,
                         PrecioUnitario = item.PrecioUnitario ?? 0,
                         ImporteBruto = item.MontoConIVA ?? 0,
                         ImporteNeto = item.MontoSinIVA ?? 0,
                         Descuento = 0m,
                         TieneDescuento = false,
-                        Categoria = (string?)null,
-                        TipoPlato = (string?)null
+                        Categoria = (string?)null
                     });
 
                 lineasProcesadas++;
@@ -546,16 +544,16 @@ public class AyresItExtractorService : IAyresItExtractorService
             {
                 await connection.ExecuteAsync(@"
                     INSERT INTO fact.VentaTicketMedioPago (
-                        VentaTicketId, MedioPagoExternoId, MedioPagoNombre, Monto
+                        VentaTicketId, CodigoMedioPago, MarcaTarjeta, Importe
                     ) VALUES (
-                        @TicketId, @MedioPagoId, @MedioPagoNombre, @Monto
+                        @TicketId, @CodigoMedioPago, @MarcaTarjeta, @Importe
                     )",
                     new
                     {
                         TicketId = ticketId,
-                        MedioPagoId = cobranza.IdMedioPago?.ToString() ?? "0",
-                        MedioPagoNombre = cobranza.DescripcionMedioPago ?? "Desconocido",
-                        Monto = cobranza.Monto ?? 0
+                        CodigoMedioPago = cobranza.IdMedioPago?.ToString() ?? "0",
+                        MarcaTarjeta = cobranza.DescripcionMedioPago ?? "Desconocido",
+                        Importe = cobranza.Monto ?? 0
                     });
             }
         }
