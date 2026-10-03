@@ -26,7 +26,7 @@ import { franquiciasApi, type GrupoEconomico, type FranquiciaUpdate } from '@/se
 import { formatDate, getStatusColor, cn } from '@/lib/utils'
 import type { EstadoIntegracion as EstadoIntegracionType } from '@/types/dashboard'
 
-const POS_OPTIONS = ['AGORA', 'VINSON', 'TOAST', 'MICROS', 'ORACLE', 'SQUARE', 'CLOVER', 'OTRO']
+const POS_OPTIONS = ['AGORA', 'VINSON', 'AYRES_IT', 'TOAST', 'MICROS', 'ORACLE', 'SQUARE', 'CLOVER', 'OTRO']
 
 interface EditFormData {
   nombre: string
