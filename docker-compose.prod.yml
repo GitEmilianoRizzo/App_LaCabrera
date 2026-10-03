@@ -39,6 +39,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ConnectionStrings__LaCabreraDb=${DB_CONNECTION_STRING}
       - Serilog__MinimumLevel__Default=Warning
+      - Jwt__Secret=${JWT_SECRET}
     networks:
       - lacabrera-network
     healthcheck:
