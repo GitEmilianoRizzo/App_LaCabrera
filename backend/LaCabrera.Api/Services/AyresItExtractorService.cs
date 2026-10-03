@@ -514,17 +514,21 @@ public class AyresItExtractorService : IAyresItExtractorService
 
                 await connection.ExecuteAsync(@"
                     INSERT INTO fact.VentaTicketDetalle (
-                        VentaTicketId, CodigoProducto, NombreProducto,
+                        VentaTicketId, IngestionBatchId, FranquiciaId,
+                        CodigoProducto, NombreProducto,
                         Cantidad, PrecioUnitario, ImporteBruto, ImporteNeto,
                         ImporteDescuento, TieneDescuento, CategoriaProducto
                     ) VALUES (
-                        @TicketId, @CodigoProducto, @NombreProducto,
+                        @TicketId, @BatchId, @FranquiciaId,
+                        @CodigoProducto, @NombreProducto,
                         @Cantidad, @PrecioUnitario, @ImporteBruto, @ImporteNeto,
                         @Descuento, @TieneDescuento, @Categoria
                     )",
                     new
                     {
                         TicketId = ticketId,
+                        BatchId = batchId,
+                        FranquiciaId = franquiciaId,
                         CodigoProducto = item.IdArticulo.ToString(),
                         NombreProducto = item.IdArticulo.ToString(), // TODO: obtener nombre de catálogo
                         Cantidad = item.Cantidad ?? 1,
@@ -547,13 +551,17 @@ public class AyresItExtractorService : IAyresItExtractorService
             {
                 await connection.ExecuteAsync(@"
                     INSERT INTO fact.VentaTicketMedioPago (
-                        VentaTicketId, CodigoMedioPago, MarcaTarjeta, Importe
+                        VentaTicketId, IngestionBatchId, FranquiciaId,
+                        CodigoMedioPago, MarcaTarjeta, Importe
                     ) VALUES (
-                        @TicketId, @CodigoMedioPago, @MarcaTarjeta, @Importe
+                        @TicketId, @BatchId, @FranquiciaId,
+                        @CodigoMedioPago, @MarcaTarjeta, @Importe
                     )",
                     new
                     {
                         TicketId = ticketId,
+                        BatchId = batchId,
+                        FranquiciaId = franquiciaId,
                         CodigoMedioPago = cobranza.IdMedioPago?.ToString() ?? "0",
                         MarcaTarjeta = cobranza.DescripcionMedioPago ?? "Desconocido",
                         Importe = cobranza.Monto ?? 0
