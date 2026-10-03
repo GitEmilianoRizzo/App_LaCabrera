@@ -515,12 +515,12 @@ public class AyresItExtractorService : IAyresItExtractorService
                 await connection.ExecuteAsync(@"
                     INSERT INTO fact.VentaTicketDetalle (
                         VentaTicketId, IngestionBatchId, FranquiciaId,
-                        CodigoProducto, NombreProducto,
+                        ExternalLineId, CodigoProducto, NombreProducto,
                         Cantidad, PrecioUnitario, ImporteBruto, ImporteNeto,
                         ImporteDescuento, TieneDescuento, CategoriaProducto
                     ) VALUES (
                         @TicketId, @BatchId, @FranquiciaId,
-                        @CodigoProducto, @NombreProducto,
+                        @ExternalLineId, @CodigoProducto, @NombreProducto,
                         @Cantidad, @PrecioUnitario, @ImporteBruto, @ImporteNeto,
                         @Descuento, @TieneDescuento, @Categoria
                     )",
@@ -529,6 +529,7 @@ public class AyresItExtractorService : IAyresItExtractorService
                         TicketId = ticketId,
                         BatchId = batchId,
                         FranquiciaId = franquiciaId,
+                        ExternalLineId = item.IdVentaItem?.ToString() ?? item.IdComandaItem?.ToString() ?? lineasProcesadas.ToString(),
                         CodigoProducto = item.IdArticulo.ToString(),
                         NombreProducto = item.IdArticulo.ToString(), // TODO: obtener nombre de catálogo
                         Cantidad = item.Cantidad ?? 1,
