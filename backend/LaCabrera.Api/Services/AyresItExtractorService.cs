@@ -683,6 +683,21 @@ public class AyresItConfiguracion
 {
     [JsonPropertyName("connection")]
     public AyresItConnectionConfig? Connection { get; set; }
+
+    [JsonPropertyName("field_mappings")]
+    public List<AyresItFieldMapping>? FieldMappings { get; set; }
+}
+
+public class AyresItFieldMapping
+{
+    [JsonPropertyName("origen")]
+    public string? Origen { get; set; }
+
+    [JsonPropertyName("destino")]
+    public string? Destino { get; set; }
+
+    [JsonPropertyName("descripcion")]
+    public string? Descripcion { get; set; }
 }
 
 public class AyresItConnectionConfig
