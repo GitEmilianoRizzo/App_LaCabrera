@@ -20,6 +20,9 @@ import {
 } from '@/hooks/useDashboard'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 
+// Códigos de franquicias que conforman la referencia Palermo
+const PALERMO_CODIGOS = ['PALERMO_NORTE', 'PALERMO_SUR']
+
 // Métricas disponibles para el gráfico de tendencias
 const TREND_METRICS: MetricOption[] = [
   { id: 'venta_neta', label: 'Venta Neta (USD)', format: 'currency' },
@@ -113,6 +116,16 @@ export function DashboardHome() {
       (new Date(filters.fechaHasta).getTime() - new Date(filters.fechaDesde).getTime()) / (1000 * 60 * 60 * 24)
     ) + 1
   }, [filters.fechaDesde, filters.fechaHasta])
+
+  // Obtener datos de Palermo (suma de Norte + Sur) para comparación
+  // IMPORTANTE: Debe estar definido ANTES de tableData que lo usa
+  const ventaPalermo = useMemo(() => {
+    if (!dashboardData) return 0
+    // Sumar venta_neta de Palermo Norte y Palermo Sur
+    const palermoNorte = dashboardData.find(f => f.franquicia_codigo === 'PALERMO_NORTE')
+    const palermoSur = dashboardData.find(f => f.franquicia_codigo === 'PALERMO_SUR')
+    return (palermoNorte?.venta_neta || 0) + (palermoSur?.venta_neta || 0)
+  }, [dashboardData])
 
   // Filtrar datos del home dashboard (para lista de franquicias)
   const filteredData = useMemo(() => {
@@ -518,18 +531,6 @@ export function DashboardHome() {
       { ventaBruta: 0, ventaNeta: 0, tickets: 0, cubiertos: 0 }
     )
   }, [dashboardData])
-
-  // Obtener datos de Palermo (suma de Norte + Sur) para comparación
-  const ventaPalermo = useMemo(() => {
-    if (!dashboardData) return 0
-    // Sumar venta_neta de Palermo Norte y Palermo Sur
-    const palermoNorte = dashboardData.find(f => f.franquicia_codigo === 'PALERMO_NORTE')
-    const palermoSur = dashboardData.find(f => f.franquicia_codigo === 'PALERMO_SUR')
-    return (palermoNorte?.venta_neta || 0) + (palermoSur?.venta_neta || 0)
-  }, [dashboardData])
-
-  // Códigos de franquicias que conforman la referencia Palermo
-  const PALERMO_CODIGOS = ['PALERMO_NORTE', 'PALERMO_SUR']
 
   // Footer de totales simplificado (los totales completos están en los KPIs)
   const tableFooter = null // Deshabilitado - los totales ya se muestran en los KPI cards
