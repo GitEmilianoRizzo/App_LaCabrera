@@ -1,13 +1,13 @@
 # ============================================
 # LA CABRERA - Docker Compose PRODUCCION
-# Solo Frontend + Backend (SQL Server externo)
+# Frontend + Backend (SQL Server externo)
+# SSL handled by system nginx reverse proxy
 # ============================================
-
-version: '3.8'
 
 services:
   # ----------------------------------------
   # Frontend (React + Nginx)
+  # Exposed on 8080, system nginx proxies 443->8080
   # ----------------------------------------
   frontend:
     build:
@@ -17,7 +17,7 @@ services:
         VITE_API_URL: /api/v1
     container_name: lacabrera-frontend
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       api:
         condition: service_healthy
