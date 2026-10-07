@@ -475,6 +475,43 @@ public class ConexionController : ControllerBase
     }
 
     /// <summary>
+    /// Parsea archivos Toast usando parser combinado HTML + CSV
+    /// </summary>
+    [HttpPost("{id:int}/parse-toast-combined")]
+    [SwaggerOperation(Summary = "Parsear Toast combinado", Description = "Parsea HTML Order Details + CSV Summary ZIP para validación cruzada")]
+    [SwaggerResponse(200, "Archivo parseado", typeof(ParseFileResultDto))]
+    [SwaggerResponse(400, "Error en el parseo")]
+    [SwaggerResponse(404, "Nodo no encontrado")]
+    [DisableRequestSizeLimit]
+    public async Task<ActionResult<ParseFileResultDto>> ParseToastCombined(
+        int id,
+        [FromForm] IFormFile html_file,
+        [FromForm] IFormFile? csv_zip = null)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null)
+        {
+            return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        }
+
+        // Allow TXT_PARSER and FILE_PARSER types
+        var allowedTypes = new[] { "TXT_PARSER", "FILE_PARSER" };
+        if (!allowedTypes.Contains(nodo.TipoConector))
+        {
+            return BadRequest(new { message = $"Nodo no es de tipo TXT_PARSER o FILE_PARSER. Tipo: {nodo.TipoConector}" });
+        }
+
+        if (html_file == null)
+        {
+            return BadRequest(new { message = "Se requiere el archivo HTML" });
+        }
+
+        var result = await _txtParserService.ParseToastCombinedAsync(html_file, csv_zip);
+
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Ingesta los archivos ya parseados
     /// </summary>
     [HttpPost("{id:int}/ingest-parsed")]
@@ -536,13 +573,23 @@ public class ConexionController : ControllerBase
                 // Use the existing ingestion service
                 var response = await _ingestionService.ProcessBatchAsync(batchRequest, nodo.FranquiciaId, jsonString);
 
+                // Build detailed error message including validation details
+                string? errorMsg = null;
+                if (!response.Success)
+                {
+                    var errorDetails = response.Errors?.Select(e => $"{e.Field}: {e.Message}").ToList();
+                    errorMsg = errorDetails?.Count > 0
+                        ? $"{response.Message} - {string.Join("; ", errorDetails.Take(5))}"
+                        : response.Message;
+                }
+
                 results.Add(new IngestResultDto
                 {
                     Success = response.Success,
                     Filename = file.Filename,
                     BatchId = response.BatchId,
                     TicketsProcessed = response.Summary?.TicketsProcessed ?? 0,
-                    Error = response.Success ? null : response.Message
+                    Error = errorMsg
                 });
 
                 if (response.Success)

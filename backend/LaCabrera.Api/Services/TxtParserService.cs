@@ -13,6 +13,7 @@ public interface ITxtParserService
     Task<ParserDto?> GetParserByIdAsync(int parserId);
     Task<ParserDto?> GetParserByCodigoAsync(string codigo);
     Task<ParseBatchResultDto> ParseFilesAsync(string parserCode, List<IFormFile> files);
+    Task<ParseFileResultDto> ParseToastCombinedAsync(IFormFile htmlFile, IFormFile? csvZipFile);
 }
 
 public class TxtParserService : ITxtParserService
@@ -209,6 +210,68 @@ public class TxtParserService : ITxtParserService
             Success = false,
             Filename = file.FileName,
             Error = "Failed to parse response from parser service"
+        };
+    }
+
+    public async Task<ParseFileResultDto> ParseToastCombinedAsync(IFormFile htmlFile, IFormFile? csvZipFile)
+    {
+        using var content = new MultipartFormDataContent();
+
+        // Add HTML file
+        using var htmlStream = htmlFile.OpenReadStream();
+        using var htmlMemory = new MemoryStream();
+        await htmlStream.CopyToAsync(htmlMemory);
+        var htmlBytes = htmlMemory.ToArray();
+
+        var htmlContent = new ByteArrayContent(htmlBytes);
+        htmlContent.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+        content.Add(htmlContent, "html_file", htmlFile.FileName);
+
+        // Add CSV ZIP file if provided
+        if (csvZipFile != null)
+        {
+            using var csvStream = csvZipFile.OpenReadStream();
+            using var csvMemory = new MemoryStream();
+            await csvStream.CopyToAsync(csvMemory);
+            var csvBytes = csvMemory.ToArray();
+
+            var csvContent = new ByteArrayContent(csvBytes);
+            csvContent.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+            content.Add(csvContent, "csv_zip", csvZipFile.FileName);
+        }
+
+        // Call parser service combined endpoint
+        _logger.LogInformation("Sending HTML {HtmlFile} + CSV ZIP {CsvFile} to combined parser at {Url}",
+            htmlFile.FileName, csvZipFile?.FileName ?? "(none)", _parserServiceUrl);
+
+        var response = await _httpClient.PostAsync($"{_parserServiceUrl}/parse-toast-combined", content);
+        var responseBody = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            _logger.LogWarning("Combined parser service returned {StatusCode}: {Body}", response.StatusCode, responseBody);
+            return new ParseFileResultDto
+            {
+                Success = false,
+                Filename = htmlFile.FileName,
+                Error = $"Parser service error: {response.StatusCode}"
+            };
+        }
+
+        // Parse response
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        };
+
+        var parseResult = JsonSerializer.Deserialize<ParseFileResultDto>(responseBody, options);
+
+        return parseResult ?? new ParseFileResultDto
+        {
+            Success = false,
+            Filename = htmlFile.FileName,
+            Error = "Failed to parse response from combined parser service"
         };
     }
 }

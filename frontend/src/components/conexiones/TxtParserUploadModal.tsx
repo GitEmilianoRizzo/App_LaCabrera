@@ -33,11 +33,22 @@ interface TxtParserUploadModalProps {
 type ModalState = 'upload' | 'parsing' | 'preview' | 'ingesting' | 'complete'
 
 // Supported file extensions
-const ALLOWED_EXTENSIONS = ['.txt', '.html', '.htm', '.csv', '.json']
+const ALLOWED_EXTENSIONS = ['.txt', '.html', '.htm', '.csv', '.json', '.zip']
 
 const isAllowedFile = (filename: string): boolean => {
   const lower = filename.toLowerCase()
   return ALLOWED_EXTENSIONS.some(ext => lower.endsWith(ext))
+}
+
+// Check if files include an HTML + ZIP pair for combined Toast parsing
+const detectToastCombinedPair = (files: File[]): { htmlFile: File; zipFile: File } | null => {
+  const htmlFile = files.find(f => f.name.toLowerCase().endsWith('.html') || f.name.toLowerCase().endsWith('.htm'))
+  const zipFile = files.find(f => f.name.toLowerCase().endsWith('.zip'))
+
+  if (htmlFile && zipFile) {
+    return { htmlFile, zipFile }
+  }
+  return null
 }
 
 export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: TxtParserUploadModalProps) {
@@ -103,8 +114,23 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
     setError(null)
 
     try {
-      const result = await conexionesApi.parseTxtFiles(nodo.nodo_conexion_id, files)
-      setParseResult(result)
+      // Check if we have an HTML + ZIP pair for combined Toast parsing
+      const combinedPair = detectToastCombinedPair(files)
+
+      if (combinedPair) {
+        // Use combined Toast parser for HTML + CSV ZIP
+        console.log('Detected HTML + ZIP pair, using combined parser')
+        const result = await conexionesApi.parseToastCombined(
+          nodo.nodo_conexion_id,
+          combinedPair.htmlFile,
+          combinedPair.zipFile
+        )
+        setParseResult(result)
+      } else {
+        // Standard parsing for other files
+        const result = await conexionesApi.parseTxtFiles(nodo.nodo_conexion_id, files)
+        setParseResult(result)
+      }
       setState('preview')
     } catch (err) {
       console.error('Parse error:', err)
@@ -155,7 +181,7 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
             Subir Archivos - {nodo.nombre}
           </DialogTitle>
           <DialogDescription>
-            Suba archivos (HTML, CSV, TXT, JSON) para parsear e ingestar datos de ventas
+            Suba archivos para parsear e ingestar datos de ventas. Para Toast, suba HTML + ZIP de CSV para validación cruzada.
           </DialogDescription>
         </DialogHeader>
 
@@ -192,13 +218,13 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
                 <input
                   type="file"
                   className="hidden"
-                  accept=".txt,.html,.htm,.csv,.json"
+                  accept=".txt,.html,.htm,.csv,.json,.zip"
                   multiple
                   onChange={handleFileSelect}
                 />
               </label>
               <p className="text-xs text-gray-400 mt-2">
-                Formatos soportados: HTML, CSV, TXT, JSON
+                Formatos soportados: HTML, CSV, TXT, JSON, ZIP
               </p>
             </div>
 
@@ -208,6 +234,13 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
                 <h4 className="font-medium text-sm text-gray-700">
                   Archivos seleccionados ({files.length})
                 </h4>
+                {/* Combined parser indicator */}
+                {detectToastCombinedPair(files) && (
+                  <div className="bg-blue-50 text-blue-800 p-2 rounded flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4" />
+                    <span>Se usara parser combinado Toast (HTML + CSV ZIP) con validación cruzada</span>
+                  </div>
+                )}
                 <div className="max-h-40 overflow-y-auto space-y-1">
                   {files.map((file, index) => (
                     <div

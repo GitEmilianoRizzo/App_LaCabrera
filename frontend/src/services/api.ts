@@ -323,6 +323,31 @@ export const conexionesApi = {
     )
     return response.data
   },
+
+  async parseToastCombined(nodoId: number, htmlFile: File, csvZipFile?: File): Promise<ParseBatchResult> {
+    const formData = new FormData()
+    formData.append('html_file', htmlFile)
+    if (csvZipFile) {
+      formData.append('csv_zip', csvZipFile)
+    }
+    const response = await apiClient.post<ParseBatchResult>(
+      `/conexiones/${nodoId}/parse-toast-combined`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    )
+    // Wrap single result in batch format for consistency
+    const singleResult = response.data as unknown as import('@/types/conexiones').ParseFileResult
+    return {
+      total_files: 1,
+      successful: singleResult.success ? 1 : 0,
+      failed: singleResult.success ? 0 : 1,
+      results: [singleResult]
+    }
+  },
 }
 
 // Franquicias API
