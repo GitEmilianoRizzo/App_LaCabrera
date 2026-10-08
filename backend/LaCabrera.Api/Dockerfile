@@ -24,8 +24,10 @@ RUN dotnet publish "LaCabrera.Api.csproj" -c Release -o /app/publish /p:UseAppHo
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install curl for healthcheck + Chromium para generar el PDF del Informe Ejecutivo
+RUN apt-get update && apt-get install -y --no-install-recommends curl chromium fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Create non-root user for security
 RUN adduser --disabled-password --gecos '' appuser

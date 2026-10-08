@@ -195,6 +195,39 @@ export const dashboardApi = {
     })
     return response.data
   },
+
+  // Informe Ejecutivo: compara período final vs período inicial y devuelve el PDF
+  async generarInformeEjecutivoPdf(params: {
+    baseDesde: string
+    baseHasta: string
+    compDesde: string
+    compHasta: string
+  }): Promise<{ blob: Blob; filename: string }> {
+    const query = new URLSearchParams(params).toString()
+    try {
+      const response = await apiClient.get(`/dashboard/informe-ejecutivo/pdf?${query}`, {
+        responseType: 'blob',
+        timeout: 120000,
+      })
+      const disposition: string = response.headers['content-disposition'] || ''
+      const match = disposition.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i)
+      const filename = match
+        ? decodeURIComponent(match[1])
+        : `Informe_Ejecutivo_${params.compDesde}_vs_${params.baseDesde}.pdf`
+      return { blob: response.data, filename }
+    } catch (err) {
+      // Con responseType 'blob' el error JSON de la API también llega como Blob
+      if (axios.isAxiosError(err) && err.response?.data instanceof Blob) {
+        try {
+          const body = JSON.parse(await err.response.data.text())
+          throw new Error(body.message || 'Error al generar el informe')
+        } catch (parseErr) {
+          if (parseErr instanceof Error && !(parseErr instanceof SyntaxError)) throw parseErr
+        }
+      }
+      throw err
+    }
+  },
 }
 
 // Conexiones API

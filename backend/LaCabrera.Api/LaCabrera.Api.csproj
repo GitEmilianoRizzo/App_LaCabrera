@@ -10,6 +10,7 @@
   <ItemGroup>
     <PackageReference Include="Dapper" Version="2.1.28" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.0" />
+    <PackageReference Include="PuppeteerSharp" Version="20.2.2" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
     <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.5.0" />
     <PackageReference Include="FluentValidation" Version="11.9.0" />
@@ -23,6 +24,11 @@
     <PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
     <!-- Excel Export -->
     <PackageReference Include="ClosedXML" Version="0.102.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Informe Ejecutivo: logo, fuentes y estilos embebidos en el ensamblado -->
+    <EmbeddedResource Include="Resources\InformeEjecutivo\*" LogicalName="InformeEjecutivo.%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

@@ -5,6 +5,7 @@ using LaCabrera.Api.Middleware;
 using LaCabrera.Api.Repositories;
 using LaCabrera.Api.Services;
 using LaCabrera.Api.Services.ExchangeRate;
+using LaCabrera.Api.Services.InformeEjecutivo;
 using LaCabrera.Api.Validators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -32,6 +33,7 @@ builder.Services.AddControllers()
 builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSettings"));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<GoogleSettings>(builder.Configuration.GetSection("Google"));
+builder.Services.Configure<InformeEjecutivoSettings>(builder.Configuration.GetSection("InformeEjecutivo"));
 builder.Services.AddSingleton(builder.Configuration);
 
 // Database connection
@@ -47,6 +49,7 @@ builder.Services.AddScoped<IConexionRepository, ConexionRepository>();
 builder.Services.AddScoped<IPreferenciasRepository, PreferenciasRepository>();
 builder.Services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IInformeEjecutivoRepository, InformeEjecutivoRepository>();
 
 // Services
 builder.Services.AddScoped<IIngestionService, IngestionService>();
@@ -57,6 +60,8 @@ builder.Services.AddScoped<IAgoraExtractorService, AgoraExtractorService>();
 builder.Services.AddScoped<IVinsonExtractorService, VinsonExtractorService>();
 builder.Services.AddScoped<IAyresItExtractorService, AyresItExtractorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IInformeEjecutivoService, InformeEjecutivoService>();
+builder.Services.AddSingleton<IPdfRenderer, ChromiumPdfRenderer>();
 builder.Services.AddHttpClient<ITxtParserService, TxtParserService>(client =>
 {
     client.Timeout = TimeSpan.FromMinutes(5); // 5 minutes for large file parsing

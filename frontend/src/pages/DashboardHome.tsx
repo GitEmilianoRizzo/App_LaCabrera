@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { DollarSign, Ticket, Users, TrendingUp, Info, Store } from 'lucide-react'
+import { DollarSign, Ticket, Users, TrendingUp, Info, Store, FileText } from 'lucide-react'
 import { KpiCard } from '@/components/dashboard/KpiCard'
 import { SalesLineChart, MetricOption } from '@/components/charts/SalesLineChart'
 import { HorizontalBarChart } from '@/components/charts/HorizontalBarChart'
@@ -11,6 +11,8 @@ import { DetailModal, useDetailModal } from '@/components/dashboard/DetailModal'
 import { EnhancedDataTable, ColumnDef } from '@/components/dashboard/EnhancedDataTable'
 import { FranquiciaDetailModal } from '@/components/dashboard/FranquiciaDetailModal'
 import { ExportExcelModal } from '@/components/dashboard/ExportExcelModal'
+import { InformeEjecutivoModal } from '@/components/dashboard/InformeEjecutivoModal'
+import { Button } from '@/components/ui/button'
 import {
   useHomeDashboard,
   useVentasResumen,
@@ -72,6 +74,8 @@ export function DashboardHome() {
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   // Estado para el modal de exportación Excel
   const [exportModalOpen, setExportModalOpen] = useState(false)
+  // Estado del modal de Informe Ejecutivo
+  const [informeModalOpen, setInformeModalOpen] = useState(false)
 
   // Filtros - por defecto día 1 al último día del mes actual
   const getDefaultDates = () => {
@@ -740,9 +744,18 @@ export function DashboardHome() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard General</h1>
-        <p className="text-muted-foreground">Vista consolidada de ventas por franquicia</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard General</h1>
+          <p className="text-muted-foreground">Vista consolidada de ventas por franquicia</p>
+        </div>
+        <Button
+          onClick={() => setInformeModalOpen(true)}
+          className="gap-2 bg-slate-900 text-white hover:bg-slate-800 dark:bg-lime-500 dark:text-slate-900 dark:hover:bg-lime-400"
+        >
+          <FileText className="h-4 w-4 text-lime-400 dark:text-slate-900" />
+          Generar Informe Ejecutivo
+        </Button>
       </div>
 
       {/* Filtros Globales */}
@@ -964,6 +977,9 @@ export function DashboardHome() {
         filters={filters}
         franquicias={franquiciasParaFiltro}
       />
+
+      {/* Modal de Informe Ejecutivo (PDF) */}
+      <InformeEjecutivoModal open={informeModalOpen} onOpenChange={setInformeModalOpen} />
     </div>
   )
 }
