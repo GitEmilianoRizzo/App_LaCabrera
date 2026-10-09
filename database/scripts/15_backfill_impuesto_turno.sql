@@ -45,9 +45,11 @@ PRINT ''
 PRINT '--- PASO 1: Backfill fact.VentaTicket ---'
 
 -- 1a. Tickets que ya tienen ImporteImpuesto > 0 -> CalidadImpuesto = 'POS'
+-- Si Bruto = Neto + Impuesto, el neto ya viene sin impuesto (ej. Vinson): no restar el IVA otra vez (T-165)
 UPDATE fact.VentaTicket
 SET
-    ImporteNetoSinImpuesto = ImporteNeto - ImporteImpuesto,
+    ImporteNetoSinImpuesto = CASE WHEN ABS(ImporteBruto - ImporteNeto - ImporteImpuesto) <= 0.05
+                                  THEN ImporteNeto ELSE ImporteNeto - ImporteImpuesto END,
     CalidadImpuesto = 'POS',
     FechaModificacion = GETDATE(),
     UsuarioModificacion = 'BACKFILL_V12'
@@ -106,9 +108,11 @@ PRINT ''
 PRINT '--- PASO 2: Backfill fact.VentaTicketDetalle ---'
 
 -- 2a. Detalles que ya tienen ImporteImpuesto > 0 -> CalidadImpuesto = 'POS'
+-- Mismo criterio que 1a: si Bruto = Neto + Impuesto, el neto ya viene sin impuesto (T-165)
 UPDATE fact.VentaTicketDetalle
 SET
-    ImporteNetoSinImpuesto = ImporteNeto - ImporteImpuesto,
+    ImporteNetoSinImpuesto = CASE WHEN ABS(ImporteBruto - ImporteNeto - ImporteImpuesto) <= 0.05
+                                  THEN ImporteNeto ELSE ImporteNeto - ImporteImpuesto END,
     CalidadImpuesto = 'POS',
     FechaModificacion = GETDATE(),
     UsuarioModificacion = 'BACKFILL_V12'
