@@ -6,6 +6,7 @@ using Dapper;
 using LaCabrera.Api.Configuration;
 using LaCabrera.Api.Models.DTOs;
 using LaCabrera.Api.Repositories;
+using Microsoft.Extensions.Options;
 
 namespace LaCabrera.Api.Services;
 
@@ -16,8 +17,9 @@ namespace LaCabrera.Api.Services;
 /// </summary>
 public interface IVinsonExtractorService
 {
-    Task<EjecucionResultDto> EjecutarExtraccionAsync(int nodoConexionId, DateTime? fechaNegocio = null);
-    Task<EjecucionResultDto> EjecutarExtraccionRangoAsync(int nodoConexionId, DateTime fechaDesde, DateTime fechaHasta);
+    /// <param name="reprocesar">Si es true, los tickets que ya existen se actualizan en lugar de omitirse.</param>
+    Task<EjecucionResultDto> EjecutarExtraccionAsync(int nodoConexionId, DateTime? fechaNegocio = null, bool reprocesar = false);
+    Task<EjecucionResultDto> EjecutarExtraccionRangoAsync(int nodoConexionId, DateTime fechaDesde, DateTime fechaHasta, bool reprocesar = false);
     /// <summary>
     /// Sincroniza desde el último día con datos hasta hoy, evitando huecos.
     /// Si no hay datos previos, sincroniza los últimos 30 días.
@@ -31,6 +33,10 @@ public class VinsonExtractorService : IVinsonExtractorService
     private readonly IConexionRepository _conexionRepository;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<VinsonExtractorService> _logger;
+    private readonly VinsonSettings _settings;
+
+    // Formatos de fecha para GetSalesFullInforAndProducts, en orden de preferencia
+    private static readonly string[] FormatosFechaDetalle = { "dd-MM-yyyy", "yyyy-MM-dd", "yyyyMMdd" };
 
     // Cache del token JWT (por nodo)
     private static readonly Dictionary<int, (string Token, DateTime Expiration)> _tokenCache = new();
@@ -40,15 +46,17 @@ public class VinsonExtractorService : IVinsonExtractorService
         IDbConnectionFactory connectionFactory,
         IConexionRepository conexionRepository,
         IHttpClientFactory httpClientFactory,
-        ILogger<VinsonExtractorService> logger)
+        ILogger<VinsonExtractorService> logger,
+        IOptions<VinsonSettings> settings)
     {
         _connectionFactory = connectionFactory;
         _conexionRepository = conexionRepository;
         _httpClientFactory = httpClientFactory;
         _logger = logger;
+        _settings = settings.Value;
     }
 
-    public async Task<EjecucionResultDto> EjecutarExtraccionAsync(int nodoConexionId, DateTime? fechaNegocio = null)
+    public async Task<EjecucionResultDto> EjecutarExtraccionAsync(int nodoConexionId, DateTime? fechaNegocio = null, bool reprocesar = false)
     {
         var resultado = new EjecucionResultDto();
         var inicioEjecucion = DateTime.UtcNow;
@@ -92,14 +100,15 @@ public class VinsonExtractorService : IVinsonExtractorService
 
             // 3. Determinar fecha de negocio (por defecto: ayer)
             var businessDay = fechaNegocio ?? DateTime.Today.AddDays(-1);
-            // IMPORTANTE: Vinson usa formatos diferentes segun el endpoint:
-            // - GetTransactionsByDate: yyyyMMdd (DateOnly)
-            // - GetSalesFullInforAndProducts: yyyy-MM-dd (DateTime)
+            // IMPORTANTE: formatos de fecha de Vinson
+            // - GetTransactionsByDate: yyyyMMdd
+            // - GetSalesFullInforAndProducts: hoy solo acepta dd-MM-yyyy. Con yyyy-MM-dd (el formato
+            //   anterior) responde HTTP 400 "not recognized as a valid DateOnly" (T-165)
             var businessDayDateOnly = businessDay.ToString("yyyyMMdd");
             var businessDayDateTime = businessDay.ToString("yyyy-MM-dd");
 
-            _logger.LogInformation("Extrayendo datos de Vinson para {Fecha} - Nodo {NodoId} - Tienda {StoreId}",
-                businessDayDateTime, nodoConexionId, config.Connection.StoreId);
+            _logger.LogInformation("Extrayendo datos de Vinson para {Fecha} - Nodo {NodoId} - Tienda {StoreId}{Modo}",
+                businessDayDateTime, nodoConexionId, config.Connection.StoreId, reprocesar ? " (reproceso)" : "");
 
             // 4. Obtener token JWT
             var token = await ObtenerTokenAsync(nodoConexionId, config.Connection);
@@ -136,9 +145,17 @@ public class VinsonExtractorService : IVinsonExtractorService
 
             _logger.LogInformation("Recibidas {Count} cabeceras de Vinson", cabeceras.Count);
 
-            // 6. Obtener detalle con productos (usa formato DateTime: yyyy-MM-dd)
-            var urlDetalle = $"{config.Connection.BaseUrl}/api/Transaction/GetSalesFullInforAndProducts/{config.Connection.StoreId}/{businessDayDateTime}/{businessDayDateTime}";
-            var responseDet = await client.GetAsync(urlDetalle);
+            // 6. Obtener detalle con productos. Se prueban los formatos de fecha en orden y se
+            //    sigue con el siguiente solo si Vinson rechaza la fecha (HTTP 400).
+            HttpResponseMessage responseDet = null!;
+            foreach (var formato in FormatosFechaDetalle)
+            {
+                var fechaDetalle = businessDay.ToString(formato, System.Globalization.CultureInfo.InvariantCulture);
+                var urlDetalle = $"{config.Connection.BaseUrl}/api/Transaction/GetSalesFullInforAndProducts/{config.Connection.StoreId}/{fechaDetalle}/{fechaDetalle}";
+                responseDet = await client.GetAsync(urlDetalle);
+                if (responseDet.StatusCode != System.Net.HttpStatusCode.BadRequest)
+                    break;
+            }
 
             List<VinsonSalesFullInfo>? detalle = null;
             if (responseDet.IsSuccessStatusCode)
@@ -149,7 +166,9 @@ public class VinsonExtractorService : IVinsonExtractorService
             }
             else
             {
-                _logger.LogWarning("No se pudo obtener detalle de productos: HTTP {Code}", (int)responseDet.StatusCode);
+                var errorDetalle = await responseDet.Content.ReadAsStringAsync();
+                _logger.LogWarning("No se pudo obtener detalle de productos: HTTP {Code} {Body}",
+                    (int)responseDet.StatusCode, errorDetalle.Length > 500 ? errorDetalle[..500] : errorDetalle);
             }
 
             // 7. Indexar detalle por transactionId para JOIN (usando GroupBy para evitar duplicados)
@@ -168,7 +187,7 @@ public class VinsonExtractorService : IVinsonExtractorService
             }
 
             // 8. Crear batch de ingesta
-            var batchId = await CrearBatchIngestaAsync(nodo.FranquiciaId, businessDay, jsonCabeceras);
+            var batchId = await CrearBatchIngestaAsync(nodo.FranquiciaId, businessDay, jsonCabeceras, reprocesar ? "CORRECTION" : "FULL_DAY");
             resultado.BatchId = batchId;
 
             // 9. Procesar transacciones
@@ -183,7 +202,7 @@ public class VinsonExtractorService : IVinsonExtractorService
                     // Buscar detalle correspondiente
                     detalleDict.TryGetValue(transaccion.IdTransaccion.ToString(), out var detalleTransaccion);
 
-                    var (ticketId, lineas) = await ProcesarTransaccionAsync(transaccion, detalleTransaccion, nodo.FranquiciaId, batchId, nodoConexionId, nodo.Moneda);
+                    var (ticketId, lineas) = await ProcesarTransaccionAsync(transaccion, detalleTransaccion, nodo.FranquiciaId, batchId, nodoConexionId, nodo.Moneda, reprocesar);
                     if (ticketId > 0)
                     {
                         ticketsProcesados++;
@@ -231,7 +250,7 @@ public class VinsonExtractorService : IVinsonExtractorService
         }
     }
 
-    public async Task<EjecucionResultDto> EjecutarExtraccionRangoAsync(int nodoConexionId, DateTime fechaDesde, DateTime fechaHasta)
+    public async Task<EjecucionResultDto> EjecutarExtraccionRangoAsync(int nodoConexionId, DateTime fechaDesde, DateTime fechaHasta, bool reprocesar = false)
     {
         var resultado = new EjecucionResultDto { Success = true };
         int totalTickets = 0;
@@ -247,7 +266,7 @@ public class VinsonExtractorService : IVinsonExtractorService
             try
             {
                 _logger.LogInformation("Procesando día {Fecha}...", fecha.ToString("yyyy-MM-dd"));
-                var resultadoDia = await EjecutarExtraccionAsync(nodoConexionId, fecha);
+                var resultadoDia = await EjecutarExtraccionAsync(nodoConexionId, fecha, reprocesar);
 
                 totalTickets += resultadoDia.TicketsProcesados;
                 totalLineas += resultadoDia.LineasProcesadas;
@@ -427,13 +446,19 @@ public class VinsonExtractorService : IVinsonExtractorService
         }
     }
 
-    private async Task<(long ticketId, int lineas)> ProcesarTransaccionAsync(
+    /// <summary>
+    /// Guarda una transacción de Vinson. Si el ticket ya existe se omite, salvo en modo reproceso:
+    /// ahí se actualiza en el lugar (mismo VentaTicketId) y se reemplazan sus líneas y medio de pago,
+    /// así que se puede ejecutar varias veces sin duplicar.
+    /// </summary>
+    internal async Task<(long ticketId, int lineas)> ProcesarTransaccionAsync(
         VinsonTransaccion transaccion,
         VinsonSalesFullInfo? detalle,
         int franquiciaId,
         long batchId,
         int nodoConexionId,
-        string moneda)
+        string moneda,
+        bool reprocesar = false)
     {
         using var connection = _connectionFactory.CreateConnection();
 
@@ -445,24 +470,11 @@ public class VinsonExtractorService : IVinsonExtractorService
             WHERE FranquiciaId = @FranquiciaId AND ExternalTicketId = @ExternalId",
             new { FranquiciaId = franquiciaId, ExternalId = externalId });
 
-        if (existe.HasValue)
+        if (existe.HasValue && !reprocesar)
         {
             _logger.LogDebug("Ticket {Id} ya existe, omitiendo", externalId);
             return (0, 0);
         }
-
-        // Mapear estado (Vinson usa códigos numéricos)
-        // Según la API de Vinson:
-        // 0 = Open, 1 = Closed, 2 = Closed (variante), 3 = Closed (pagado), 4 = Closed (otra forma)
-        // 5 = Voided (anulado real)
-        // Solo marcar como CANCELLED/VOIDED estados que realmente representan anulaciones
-        var estado = transaccion.Estado switch
-        {
-            0 => "OPEN",
-            1 or 2 or 3 or 4 => "CLOSED",
-            5 => "VOIDED",
-            _ => "CLOSED"
-        };
 
         // Calcular período de comida
         // StartHour viene como string "HH:mm:ss", extraemos la hora
@@ -476,86 +488,150 @@ public class VinsonExtractorService : IVinsonExtractorService
             _ => "LATE_NIGHT"
         };
 
-        // Importes de Vinson:
-        // - montoNeto = SIN IVA (base imponible)
-        // - montoFinal = CON IVA
-        // Para nuestro modelo: ImporteBruto = montoFinal, ImporteNeto = base para calcular
-        decimal importeBruto = detalle?.TotalAmount ?? transaccion.MontoFinal ?? 0;
-        decimal importeNeto = detalle?.NetAmount ?? transaccion.MontoNeto ?? 0;
-        decimal importeImpuesto = detalle?.TaxNetAmount ?? (importeBruto - importeNeto);
-        decimal importeDescuento = 0;
-        decimal importePropina = 0;
+        // Importes: el total del ticket sale de la cabecera del POS y las líneas se guardan
+        // con importe extendido (cantidad × unitario). Ver VinsonImportes.
+        var productos = detalle?.Products ?? new List<VinsonProduct>();
+
+        // En reproceso, si Vinson no devolvió productos para el ticket se conservan las líneas ya
+        // cargadas y solo se corrige la cabecera: no se borran líneas que no se pueden volver a cargar.
+        var conservarLineas = existe.HasValue && productos.Count == 0;
+        var lineasCalc = conservarLineas
+            ? (await connection.QueryAsync<decimal>(
+                    "SELECT ImporteBruto FROM fact.VentaTicketDetalle WHERE VentaTicketId = @Id", new { Id = existe!.Value }))
+                .Select(b => new VinsonLineaCalculada(1, b, b, 0, b, 0, false)).ToList()
+            : productos.Select(VinsonImportes.CalcularLinea).ToList();
+        var ticket = VinsonImportes.CalcularTicket(transaccion, detalle, lineasCalc, _settings.TratamientoTicketsNegativos);
+        var anularLineas = ticket.EsDevolucion && _settings.TratamientoTicketsNegativos == TratamientoTicketNegativo.MarcarDevolucion;
+
+        var datosTicket = new
+        {
+            BatchId = batchId,
+            FranquiciaId = franquiciaId,
+            ExternalId = externalId,
+            NumeroTicket = detalle?.TicketNumber?.ToString() ?? transaccion.IdTransaccion.ToString(),
+            ticket.Estado,
+            TipoDocumentoFiscal = detalle?.TicketType,
+            FechaNegocio = transaccion.OpenDate ?? DateTime.Today,
+            FechaApertura = transaccion.Inicio,
+            FechaCierre = transaccion.Fin,
+            PeriodoComida = periodoComida,
+            NumeroMesa = transaccion.Mesa?.ToString(),
+            AreaMesa = (string?)null,
+            MozoId = (int?)null, // No hay FK a dim.Mozo - empInicio de Vinson es solo informativo
+            CantidadCubiertos = transaccion.Clientes ?? 0,
+            CodigoMoneda = moneda,
+            ticket.ImporteBruto,
+            ticket.ImporteDescuento,
+            ticket.ImporteNeto,
+            ticket.ImporteImpuesto,
+            ticket.ImporteNetoSinImpuesto,
+            ImportePropina = 0m,
+            ImporteTotalPagado = ticket.ImporteBruto,
+            TieneDescuento = ticket.ImporteDescuento > 0,
+            ticket.EstaAnulado,
+            TieneCubiertos = (transaccion.Clientes ?? 0) > 0,
+            TieneMozo = transaccion.EmpInicio.HasValue,
+            TieneMesa = transaccion.Mesa.HasValue && transaccion.Mesa > 0,
+            Usuario = reprocesar ? "VINSON_REPROCESO" : "VINSON"
+        };
+
+        connection.Open();
+        using var tx = connection.BeginTransaction();
+
+        long ticketId;
+        if (existe.HasValue)
+        {
+            ticketId = existe.Value;
+            await connection.ExecuteAsync(@"
+                UPDATE fact.VentaTicket SET
+                    IngestionBatchId = @BatchId, NumeroTicket = @NumeroTicket, Estado = @Estado,
+                    TipoDocumentoFiscal = @TipoDocumentoFiscal,
+                    FechaApertura = @FechaApertura, FechaCierre = @FechaCierre, PeriodoComida = @PeriodoComida,
+                    NumeroMesa = @NumeroMesa, CantidadCubiertos = @CantidadCubiertos, CodigoMoneda = @CodigoMoneda,
+                    ImporteBruto = @ImporteBruto, ImporteDescuento = @ImporteDescuento, ImporteNeto = @ImporteNeto,
+                    ImporteImpuesto = @ImporteImpuesto, ImporteNetoSinImpuesto = @ImporteNetoSinImpuesto,
+                    ImportesIncluyenImpuesto = 0, CalidadImpuesto = 'POS',
+                    ImportePropina = @ImportePropina, ImporteTotalPagado = @ImporteTotalPagado,
+                    TieneDescuento = @TieneDescuento, EstaAnulado = @EstaAnulado,
+                    TieneDatosCubiertos = @TieneCubiertos, TieneDatosMozo = @TieneMozo, TieneDatosMesa = @TieneMesa,
+                    FechaModificacion = SYSDATETIME(), UsuarioModificacion = @Usuario
+                WHERE VentaTicketId = @TicketId",
+                new { datosTicket.BatchId, datosTicket.NumeroTicket, datosTicket.Estado, datosTicket.TipoDocumentoFiscal,
+                      datosTicket.FechaApertura, datosTicket.FechaCierre, datosTicket.PeriodoComida, datosTicket.NumeroMesa,
+                      datosTicket.CantidadCubiertos, datosTicket.CodigoMoneda, datosTicket.ImporteBruto, datosTicket.ImporteDescuento,
+                      datosTicket.ImporteNeto, datosTicket.ImporteImpuesto, datosTicket.ImporteNetoSinImpuesto,
+                      datosTicket.ImportePropina, datosTicket.ImporteTotalPagado, datosTicket.TieneDescuento, datosTicket.EstaAnulado,
+                      datosTicket.TieneCubiertos, datosTicket.TieneMozo, datosTicket.TieneMesa, datosTicket.Usuario, TicketId = ticketId },
+                tx);
+
+            if (conservarLineas)
+            {
+                if (anularLineas)
+                {
+                    await connection.ExecuteAsync(@"
+                        UPDATE fact.VentaTicketDetalle
+                        SET EstaAnulado = 1, MotivoAnulacion = 'DEVOLUCION_POS',
+                            FechaModificacion = SYSDATETIME(), UsuarioModificacion = @Usuario
+                        WHERE VentaTicketId = @TicketId",
+                        new { TicketId = ticketId, datosTicket.Usuario }, tx);
+                }
+
+                _logger.LogWarning("Ticket {Id}: sin detalle de productos en Vinson, se actualiza solo la cabecera", externalId);
+                tx.Commit();
+                return (ticketId, 0);
+            }
+
+            await connection.ExecuteAsync(@"
+                DELETE FROM fact.VentaTicketDetalle WHERE VentaTicketId = @TicketId;
+                DELETE FROM fact.VentaTicketMedioPago WHERE VentaTicketId = @TicketId;",
+                new { TicketId = ticketId }, tx);
+        }
+        else
+        {
+            ticketId = await connection.QuerySingleAsync<long>(@"
+                INSERT INTO fact.VentaTicket (
+                    IngestionBatchId, FranquiciaId, ExternalTicketId, NumeroTicket, Estado,
+                    TipoDocumentoFiscal,
+                    FechaNegocio, FechaApertura, FechaCierre, PeriodoComida,
+                    NumeroMesa, AreaMesa, MozoId,
+                    CantidadCubiertos, CodigoMoneda,
+                    ImporteBruto, ImporteDescuento, ImporteNeto, ImporteImpuesto,
+                    ImporteNetoSinImpuesto, ImportesIncluyenImpuesto, CalidadImpuesto,
+                    ImporteServicio, ImportePropina, ImporteTotalPagado,
+                    TieneDescuento, EstaAnulado, TieneDatosCubiertos, TieneDatosMozo, TieneDatosMesa,
+                    FuenteSistema
+                )
+                OUTPUT INSERTED.VentaTicketId
+                VALUES (
+                    @BatchId, @FranquiciaId, @ExternalId, @NumeroTicket, @Estado,
+                    @TipoDocumentoFiscal,
+                    @FechaNegocio, @FechaApertura, @FechaCierre, @PeriodoComida,
+                    @NumeroMesa, @AreaMesa, @MozoId,
+                    @CantidadCubiertos, @CodigoMoneda,
+                    @ImporteBruto, @ImporteDescuento, @ImporteNeto, @ImporteImpuesto,
+                    @ImporteNetoSinImpuesto, 0, 'POS',
+                    0, @ImportePropina, @ImporteTotalPagado,
+                    @TieneDescuento, @EstaAnulado, @TieneCubiertos, @TieneMozo, @TieneMesa,
+                    'VINSON'
+                )",
+                datosTicket, tx);
+        }
 
         int lineasCount = 0;
 
-        // Insertar ticket
-        var ticketId = await connection.QuerySingleAsync<long>(@"
-            INSERT INTO fact.VentaTicket (
-                IngestionBatchId, FranquiciaId, ExternalTicketId, NumeroTicket, Estado,
-                TipoDocumentoFiscal,
-                FechaNegocio, FechaApertura, FechaCierre, PeriodoComida,
-                NumeroMesa, AreaMesa, MozoId,
-                CantidadCubiertos, CodigoMoneda,
-                ImporteBruto, ImporteDescuento, ImporteNeto, ImporteImpuesto,
-                ImporteServicio, ImportePropina, ImporteTotalPagado,
-                TieneDescuento, EstaAnulado, TieneDatosCubiertos, TieneDatosMozo, TieneDatosMesa,
-                FuenteSistema
-            )
-            OUTPUT INSERTED.VentaTicketId
-            VALUES (
-                @BatchId, @FranquiciaId, @ExternalId, @NumeroTicket, @Estado,
-                @TipoDocumentoFiscal,
-                @FechaNegocio, @FechaApertura, @FechaCierre, @PeriodoComida,
-                @NumeroMesa, @AreaMesa, @MozoId,
-                @CantidadCubiertos, @CodigoMoneda,
-                @ImporteBruto, @ImporteDescuento, @ImporteNeto, @ImporteImpuesto,
-                0, @ImportePropina, @ImporteTotalPagado,
-                @TieneDescuento, @EstaAnulado, @TieneCubiertos, @TieneMozo, @TieneMesa,
-                'VINSON'
-            )",
-            new
-            {
-                BatchId = batchId,
-                FranquiciaId = franquiciaId,
-                ExternalId = externalId,
-                NumeroTicket = detalle?.TicketNumber?.ToString() ?? transaccion.IdTransaccion.ToString(),
-                Estado = estado,
-                TipoDocumentoFiscal = detalle?.TicketType,
-                FechaNegocio = transaccion.OpenDate ?? DateTime.Today,
-                FechaApertura = transaccion.Inicio,
-                FechaCierre = transaccion.Fin,
-                PeriodoComida = periodoComida,
-                NumeroMesa = transaccion.Mesa?.ToString(),
-                AreaMesa = (string?)null,
-                MozoId = (int?)null, // No hay FK a dim.Mozo - empInicio de Vinson es solo informativo
-                CantidadCubiertos = transaccion.Clientes ?? 0,
-                CodigoMoneda = moneda,
-                ImporteBruto = importeBruto,
-                ImporteDescuento = importeDescuento,
-                ImporteNeto = importeNeto,
-                ImporteImpuesto = importeImpuesto,
-                ImportePropina = importePropina,
-                ImporteTotalPagado = importeBruto,
-                TieneDescuento = importeDescuento > 0,
-                EstaAnulado = estado == "VOIDED" || estado == "CANCELLED",
-                TieneCubiertos = (transaccion.Clientes ?? 0) > 0,
-                TieneMozo = transaccion.EmpInicio.HasValue,
-                TieneMesa = transaccion.Mesa.HasValue && transaccion.Mesa > 0
-            });
-
         // Insertar líneas de detalle (si hay productos)
-        if (detalle?.Products != null && detalle.Products.Count > 0)
+        if (productos.Count > 0)
         {
             // Obtener mapeos de categoría
             var mapeosCat = await connection.QueryAsync<(string CodigoOrigen, string CategoriaDestino)>(@"
                 SELECT CodigoOrigen, CategoriaDestino FROM dim.MapeoCategoria WHERE NodoConexionId = @NodoId",
-                new { NodoId = nodoConexionId });
+                new { NodoId = nodoConexionId }, tx);
             var mapeoDict = mapeosCat.ToDictionary(m => m.CodigoOrigen, m => m.CategoriaDestino, StringComparer.OrdinalIgnoreCase);
 
-            int lineIndex = 0;
-            foreach (var producto in detalle.Products)
+            for (int i = 0; i < productos.Count; i++)
             {
-                lineIndex++;
+                var producto = productos[i];
+                var linea = lineasCalc[i];
 
                 // Buscar categoría mapeada (por nombre de categoría o grupo)
                 var categoriaEstandar = mapeoDict.GetValueOrDefault(producto.Category ?? "", null)
@@ -567,13 +643,6 @@ public class VinsonExtractorService : IVinsonExtractorService
                     await RegistrarValorNoMapeadoAsync(nodoConexionId, "CATEGORIA", producto.Category, producto.Category);
                 }
 
-                // Importes del producto Vinson:
-                // grossAmount = CON IVA, netAmount = SIN IVA
-                decimal lineImporteBruto = producto.GrossAmount ?? 0;
-                decimal lineImporteNeto = producto.NetAmount ?? 0;
-                decimal lineDescuento = producto.DiscountAmount ?? 0;
-                decimal lineImporteImpuesto = lineImporteBruto - lineImporteNeto;
-
                 lineasCount++;
 
                 await connection.ExecuteAsync(@"
@@ -583,6 +652,7 @@ public class VinsonExtractorService : IVinsonExtractorService
                         CategoriaProducto, FamiliaProducto, SubfamiliaProducto,
                         Cantidad, PrecioUnitario,
                         ImporteBruto, ImporteDescuento, ImporteNeto, ImporteImpuesto,
+                        ImporteNetoSinImpuesto, ImportesIncluyenImpuesto, CalidadImpuesto,
                         TieneDescuento, EstaAnulado, MotivoAnulacion, Notas
                     )
                     VALUES (
@@ -591,6 +661,7 @@ public class VinsonExtractorService : IVinsonExtractorService
                         @CategoriaProducto, @FamiliaProducto, @SubfamiliaProducto,
                         @Cantidad, @PrecioUnitario,
                         @ImporteBruto, @ImporteDescuento, @ImporteNeto, @ImporteImpuesto,
+                        @ImporteNeto, 0, 'POS',
                         @TieneDescuento, @EstaAnulado, @MotivoAnulacion, @Notas
                     )",
                     new
@@ -598,23 +669,23 @@ public class VinsonExtractorService : IVinsonExtractorService
                         TicketId = ticketId,
                         BatchId = batchId,
                         FranquiciaId = franquiciaId,
-                        ExternalLineId = lineIndex.ToString(),
+                        ExternalLineId = (i + 1).ToString(),
                         CodigoProducto = producto.Name?.Replace(" ", "_").ToUpperInvariant()[..Math.Min(producto.Name.Length, 50)] ?? "UNKNOWN",
                         NombreProducto = producto.Name ?? "Sin nombre",
                         CategoriaProducto = categoriaEstandar,
                         FamiliaProducto = producto.Category,
                         SubfamiliaProducto = producto.Group,
-                        Cantidad = producto.Quantity ?? 1,
-                        PrecioUnitario = producto.UnitPrice ?? 0,
-                        ImporteBruto = lineImporteBruto,
-                        ImporteDescuento = lineDescuento,
-                        ImporteNeto = lineImporteNeto,
-                        ImporteImpuesto = lineImporteImpuesto,
-                        TieneDescuento = lineDescuento > 0,
-                        EstaAnulado = string.Equals(producto.CanceledItem, "True", StringComparison.OrdinalIgnoreCase),
-                        MotivoAnulacion = (string?)null,
+                        linea.Cantidad,
+                        linea.PrecioUnitario,
+                        linea.ImporteBruto,
+                        linea.ImporteDescuento,
+                        linea.ImporteNeto,
+                        linea.ImporteImpuesto,
+                        TieneDescuento = linea.ImporteDescuento > 0,
+                        EstaAnulado = linea.EstaAnulado || anularLineas,
+                        MotivoAnulacion = anularLineas ? "DEVOLUCION_POS" : null,
                         Notas = producto.DiscountName
-                    });
+                    }, tx);
             }
         }
 
@@ -623,7 +694,7 @@ public class VinsonExtractorService : IVinsonExtractorService
         {
             var mapeosPago = await connection.QueryAsync<(string CodigoOrigen, string MedioPagoDestino)>(@"
                 SELECT CodigoOrigen, MedioPagoDestino FROM dim.MapeoMedioPago WHERE NodoConexionId = @NodoId",
-                new { NodoId = nodoConexionId });
+                new { NodoId = nodoConexionId }, tx);
             var mapeosPagoDict = mapeosPago.ToDictionary(m => m.CodigoOrigen, m => m.MedioPagoDestino, StringComparer.OrdinalIgnoreCase);
 
             var codigoMedioPago = mapeosPagoDict.GetValueOrDefault(detalle.MetodoPago, "OTHER");
@@ -645,33 +716,11 @@ public class VinsonExtractorService : IVinsonExtractorService
                     BatchId = batchId,
                     FranquiciaId = franquiciaId,
                     CodigoMedioPago = codigoMedioPago,
-                    Importe = importeBruto
-                });
+                    Importe = ticket.ImporteBruto
+                }, tx);
         }
 
-        // Recalcular totales del ticket desde las lineas de detalle
-        // (los importes de cabecera de Vinson no siempre vienen completos)
-        if (lineasCount > 0)
-        {
-            await connection.ExecuteAsync(@"
-                UPDATE vt
-                SET ImporteBruto = COALESCE(lineas.TotalBruto, vt.ImporteBruto),
-                    ImporteNeto = COALESCE(lineas.TotalNeto, vt.ImporteNeto),
-                    ImporteImpuesto = COALESCE(lineas.TotalImpuesto, vt.ImporteImpuesto)
-                FROM fact.VentaTicket vt
-                INNER JOIN (
-                    SELECT VentaTicketId,
-                           SUM(ImporteBruto) as TotalBruto,
-                           SUM(ImporteNeto) as TotalNeto,
-                           SUM(ImporteImpuesto) as TotalImpuesto
-                    FROM fact.VentaTicketDetalle
-                    WHERE VentaTicketId = @TicketId
-                    GROUP BY VentaTicketId
-                ) lineas ON vt.VentaTicketId = lineas.VentaTicketId
-                WHERE vt.VentaTicketId = @TicketId",
-                new { TicketId = ticketId });
-        }
-
+        tx.Commit();
         return (ticketId, lineasCount);
     }
 
@@ -742,7 +791,7 @@ public class VinsonExtractorService : IVinsonExtractorService
             new { FranquiciaId = franquiciaId, EstadoIntegracion = estadoIntegracion });
     }
 
-    private async Task<long> CrearBatchIngestaAsync(int franquiciaId, DateTime fechaNegocio, string rawJson)
+    private async Task<long> CrearBatchIngestaAsync(int franquiciaId, DateTime fechaNegocio, string rawJson, string tipoCarga)
     {
         using var connection = _connectionFactory.CreateConnection();
 
@@ -751,8 +800,8 @@ public class VinsonExtractorService : IVinsonExtractorService
         var batchId = await connection.QuerySingleAsync<long>(@"
             INSERT INTO stg.IngestionBatch (BatchId, FranquiciaId, FechaNegocio, SchemaVersion, TipoCarga, OrigenIngesta, Estado)
             OUTPUT INSERTED.IngestionBatchId
-            VALUES (@BatchGuid, @FranquiciaId, @FechaNegocio, 'VINSON_V1', 'FULL_DAY', 'API', 'PROCESSING')",
-            new { BatchGuid = batchGuid, FranquiciaId = franquiciaId, FechaNegocio = fechaNegocio });
+            VALUES (@BatchGuid, @FranquiciaId, @FechaNegocio, 'VINSON_V1', @TipoCarga, 'API', 'PROCESSING')",
+            new { BatchGuid = batchGuid, FranquiciaId = franquiciaId, FechaNegocio = fechaNegocio, TipoCarga = tipoCarga });
 
         await connection.ExecuteAsync(@"
             INSERT INTO stg.IngestionBatchRawJson (IngestionBatchId, JsonContent)

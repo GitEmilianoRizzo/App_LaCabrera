@@ -34,6 +34,7 @@ builder.Services.Configure<ApiSettings>(builder.Configuration.GetSection("ApiSet
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<GoogleSettings>(builder.Configuration.GetSection("Google"));
 builder.Services.Configure<InformeEjecutivoSettings>(builder.Configuration.GetSection("InformeEjecutivo"));
+builder.Services.Configure<VinsonSettings>(builder.Configuration.GetSection("Vinson"));
 builder.Services.AddSingleton(builder.Configuration);
 
 // Database connection
