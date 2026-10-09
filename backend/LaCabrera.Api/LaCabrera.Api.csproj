@@ -31,4 +31,8 @@
     <EmbeddedResource Include="Resources\InformeEjecutivo\*" LogicalName="InformeEjecutivo.%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="LaCabrera.Api.Tests" />
+  </ItemGroup>
+
 </Project>

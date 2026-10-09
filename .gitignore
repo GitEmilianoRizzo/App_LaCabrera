@@ -20,6 +20,8 @@ appsettings.*.local.json
 # ----------------------------------------
 backend/LaCabrera.Api/bin/
 backend/LaCabrera.Api/obj/
+backend/LaCabrera.Api.Tests/bin/
+backend/LaCabrera.Api.Tests/obj/
 backend/LaCabrera.Api/logs/
 
 # Build results
