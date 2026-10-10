@@ -8,6 +8,7 @@ using LaCabrera.Api.Services.ExchangeRate;
 using LaCabrera.Api.Services.InformeEjecutivo;
 using LaCabrera.Api.Validators;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Serilog;
@@ -108,7 +109,14 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+// Toda la API exige usuario logueado salvo lo marcado con [AllowAnonymous]
+// (login/refresh, health checks y la API de ventas por X-API-KEY)
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 
 // CORS
 var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? new[] { "http://localhost:3000" };
@@ -202,11 +210,14 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").AllowAnonymous();
 
 // Redirect root to swagger
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/", () => Results.Redirect("/swagger")).AllowAnonymous();
 
 Log.Information("LA CABRERA API iniciada en {Environment}", app.Environment.EnvironmentName);
 
 app.Run();
+
+// Expuesto para las pruebas de integración (WebApplicationFactory)
+public partial class Program { }

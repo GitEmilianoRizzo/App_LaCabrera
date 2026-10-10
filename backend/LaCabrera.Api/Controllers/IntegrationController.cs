@@ -1,5 +1,6 @@
 using LaCabrera.Api.Models.DTOs;
 using LaCabrera.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
@@ -53,6 +54,7 @@ public class IntegrationController : ControllerBase
     /// Health check de la API
     /// </summary>
     [HttpGet("/api/health")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Health check", Description = "Verifica que la API esta funcionando")]
     public ActionResult HealthCheck()
     {

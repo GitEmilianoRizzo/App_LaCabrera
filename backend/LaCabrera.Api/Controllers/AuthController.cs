@@ -25,6 +25,7 @@ public class AuthController : ControllerBase
     /// Login con email y contraseña
     /// </summary>
     [HttpPost("login")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Login", Description = "Autenticación con email y contraseña")]
     [SwaggerResponse(200, "Login exitoso", typeof(AuthResponse))]
     [SwaggerResponse(401, "Credenciales inválidas")]
@@ -48,6 +49,7 @@ public class AuthController : ControllerBase
     /// Login con Google
     /// </summary>
     [HttpPost("google")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Login con Google", Description = "Autenticación con token de Google")]
     [SwaggerResponse(200, "Login exitoso", typeof(AuthResponse))]
     [SwaggerResponse(401, "Token inválido o usuario no registrado")]
@@ -71,6 +73,7 @@ public class AuthController : ControllerBase
     /// Refrescar token de acceso
     /// </summary>
     [HttpPost("refresh")]
+    [AllowAnonymous]
     [SwaggerOperation(Summary = "Refrescar token", Description = "Obtiene un nuevo access token usando el refresh token")]
     [SwaggerResponse(200, "Token refrescado", typeof(AuthResponse))]
     [SwaggerResponse(401, "Refresh token inválido o expirado")]
