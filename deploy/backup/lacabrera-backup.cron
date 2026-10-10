@@ -1,0 +1,4 @@
+# /etc/cron.d/lacabrera-backup — backup diario de LaCabreraDB a las 04:00 (hora de la VPS, -03)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+0 4 * * * root /opt/lacabrera/deploy/backup/backup-db.sh >> /var/log/lacabrera-backup.log 2>&1
