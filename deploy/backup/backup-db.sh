@@ -5,7 +5,7 @@
 # 1. BACKUP DATABASE comprimido y con CHECKSUM dentro del contenedor de SQL Server
 # 2. RESTORE VERIFYONLY para comprobar que el archivo sirve
 # 3. Copia a /var/backups/lacabrera en la VPS (se conservan DIAS_LOCAL días)
-# 4. Si hay un remoto de rclone configurado (Google Drive / OneDrive), lo sube
+# 4. Si hay un remoto de rclone configurado (OneDrive), lo sube
 #    y borra allá los backups con más de DIAS_REMOTO días
 #
 # La contraseña de sa NO está en este script: se usa la variable MSSQL_SA_PASSWORD
@@ -20,7 +20,7 @@ CONTENEDOR="${CONTENEDOR:-lacabrera-sqlserver}"
 BASE="${BASE:-LaCabreraDB}"
 DIR_LOCAL="${DIR_LOCAL:-/var/backups/lacabrera}"
 DIAS_LOCAL="${DIAS_LOCAL:-7}"
-RCLONE_REMOTO="${RCLONE_REMOTO:-gdrive:LaCabrera/Backups}"
+RCLONE_REMOTO="${RCLONE_REMOTO:-onedrive:LaCabrera/Backups}"
 DIAS_REMOTO="${DIAS_REMOTO:-30}"
 DIR_CONTENEDOR="/var/opt/mssql/backup"
 
