@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react'
 import { formatNumber } from '@/lib/utils'
+import { apiFetch } from '@/services/api'
 
 // Types
 interface ExchangeRate {
@@ -106,11 +107,11 @@ export function TiposCambio() {
     setError(null)
     try {
       const [ratesRes, currenciesRes, providersRes, logsRes, healthRes] = await Promise.all([
-        fetch(`${API_BASE}/fx/rates?from=${getDateDaysAgo(30)}&to=${getToday()}`),
-        fetch(`${API_BASE}/fx/currencies`),
-        fetch(`${API_BASE}/fx/providers`),
-        fetch(`${API_BASE}/fx/logs?count=20`),
-        fetch(`${API_BASE}/fx/health`)
+        apiFetch(`${API_BASE}/fx/rates?from=${getDateDaysAgo(30)}&to=${getToday()}`),
+        apiFetch(`${API_BASE}/fx/currencies`),
+        apiFetch(`${API_BASE}/fx/providers`),
+        apiFetch(`${API_BASE}/fx/logs?count=20`),
+        apiFetch(`${API_BASE}/fx/health`)
       ])
 
       if (!ratesRes.ok || !logsRes.ok || !healthRes.ok) {
@@ -139,7 +140,7 @@ export function TiposCambio() {
     setRefreshing(true)
     setLastRefreshResult(null)
     try {
-      const res = await fetch(`${API_BASE}/fx/rates/refresh`, {
+      const res = await apiFetch(`${API_BASE}/fx/rates/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -183,7 +184,7 @@ export function TiposCambio() {
     try {
       if (editingCurrency) {
         // Update
-        const res = await fetch(`${API_BASE}/fx/currencies/${editingCurrency.codigo_iso}`, {
+        const res = await apiFetch(`${API_BASE}/fx/currencies/${editingCurrency.codigo_iso}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -198,7 +199,7 @@ export function TiposCambio() {
         }
       } else {
         // Create
-        const res = await fetch(`${API_BASE}/fx/currencies`, {
+        const res = await apiFetch(`${API_BASE}/fx/currencies`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -228,7 +229,7 @@ export function TiposCambio() {
     if (!confirm(`¿Eliminar moneda ${code} y todas sus tasas de cambio?`)) return
 
     try {
-      const res = await fetch(`${API_BASE}/fx/currencies/${code}`, { method: 'DELETE' })
+      const res = await apiFetch(`${API_BASE}/fx/currencies/${code}`, { method: 'DELETE' })
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.message || 'Error al eliminar')

@@ -1,12 +1,15 @@
 using System.Text.Json;
 using LaCabrera.Api.Models.DTOs;
 using LaCabrera.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace LaCabrera.Api.Controllers;
 
 [ApiController]
+// Lo usan los POS de las franquicias: se autentican con X-API-KEY (validada en cada acción), no con usuario
+[AllowAnonymous]
 [Route("api/v1/sales")]
 [Produces("application/json")]
 public class SalesController : ControllerBase
