@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authApi, setAccessToken } from '@/services/api'
+import { authApi, setAccessToken, setSessionHandlers } from '@/services/api'
 import type { User, LoginRequest, GoogleLoginRequest } from '@/types/auth'
 
 // Storage keys
@@ -81,6 +81,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
     localStorage.removeItem(STORAGE_KEYS.USER)
   }, [])
+
+  // El cliente de la API renueva el token solo cuando vence y avisa si la sesión ya no es válida
+  useEffect(() => {
+    setSessionHandlers({
+      getRefreshToken: () => localStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN),
+      onRefreshed: (response) => {
+        setRefreshToken(response.refresh_token)
+        setUser(response.user)
+        localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, response.access_token)
+        localStorage.setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refresh_token)
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(response.user))
+      },
+      onExpired: clearAuth,
+    })
+    return () => setSessionHandlers(null)
+  }, [clearAuth])
 
   const login = useCallback(async (request: LoginRequest) => {
     setIsLoading(true)

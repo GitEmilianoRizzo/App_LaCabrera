@@ -1,4 +1,4 @@
-import axios from 'axios'
+import axios, { type InternalAxiosRequestConfig } from 'axios'
 import type {
   HomeDashboard,
   VentasResumenDiario,
@@ -98,14 +98,84 @@ apiClient.interceptors.request.use(
   }
 )
 
-// Response interceptor for error handling
+// Sesión: el AuthContext registra cómo leer el refresh token y qué hacer al renovar o al vencer
+interface SessionHandlers {
+  getRefreshToken: () => string | null
+  onRefreshed: (response: AuthResponse) => void
+  onExpired: () => void
+}
+
+let sessionHandlers: SessionHandlers | null = null
+
+export const setSessionHandlers = (handlers: SessionHandlers | null) => {
+  sessionHandlers = handlers
+}
+
+// Una sola renovación a la vez aunque fallen varios pedidos juntos
+let renovacionEnCurso: Promise<string | null> | null = null
+
+function renovarToken(): Promise<string | null> {
+  if (!renovacionEnCurso) {
+    renovacionEnCurso = (async () => {
+      const refreshToken = sessionHandlers?.getRefreshToken()
+      if (!refreshToken) return null
+      try {
+        const response = await authApi.refreshToken(refreshToken)
+        setAccessToken(response.access_token)
+        sessionHandlers?.onRefreshed(response)
+        return response.access_token
+      } catch {
+        return null
+      } finally {
+        renovacionEnCurso = null
+      }
+    })()
+  }
+  return renovacionEnCurso
+}
+
+// Response interceptor: ante un 401 renueva el token y reintenta una vez; si no se puede, cierra la sesión
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const original = error.config as (InternalAxiosRequestConfig & { _reintento?: boolean }) | undefined
+    const isPublicEndpoint = PUBLIC_AUTH_ENDPOINTS.some((endpoint) => original?.url?.startsWith(endpoint))
+
+    if (error.response?.status === 401 && original && !original._reintento && !isPublicEndpoint && sessionHandlers) {
+      original._reintento = true
+      const token = await renovarToken()
+      if (token) {
+        original.headers.Authorization = `Bearer ${token}`
+        return apiClient(original)
+      }
+      sessionHandlers.onExpired()
+    }
+
     console.error('[API Error]', error.response?.data || error.message)
     return Promise.reject(error)
   }
 )
+
+/**
+ * fetch con el token de la sesión (para pantallas que no usan apiClient).
+ * Ante un 401 renueva el token y reintenta una vez.
+ */
+export async function apiFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const pedir = (token: string | null) => {
+    const headers = new Headers(init.headers)
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    return fetch(input, { ...init, headers })
+  }
+
+  const response = await pedir(accessToken)
+  if (response.status !== 401 || !sessionHandlers) return response
+
+  const token = await renovarToken()
+  if (token) return pedir(token)
+
+  sessionHandlers.onExpired()
+  return response
+}
 
 function buildQueryString(filters?: DashboardFilters): string {
   if (!filters) return ''
