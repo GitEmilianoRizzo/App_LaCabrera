@@ -321,6 +321,46 @@ public class ConexionController : ControllerBase
     }
 
     /// <summary>
+    /// Reprocesa tickets ya cargados de un nodo Vinson para un rango de fechas
+    /// </summary>
+    [HttpPost("{id:int}/reprocesar-rango")]
+    [SwaggerOperation(Summary = "Reprocesar rango (Vinson)", Description = "Vuelve a pedir los datos al POS y actualiza los tickets ya cargados (mismo VentaTicketId, líneas y medio de pago reemplazados). Idempotente.")]
+    [SwaggerResponse(200, "Reproceso completado", typeof(EjecucionResultDto))]
+    [SwaggerResponse(404, "Nodo no encontrado")]
+    public async Task<ActionResult<EjecucionResultDto>> ReprocesarRango(
+        int id,
+        [FromQuery] DateTime fechaDesde,
+        [FromQuery] DateTime fechaHasta)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null)
+        {
+            return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        }
+
+        if (!nodo.TipoConector.ToUpperInvariant().StartsWith("VINSON"))
+        {
+            return BadRequest(new { message = $"El reproceso solo está disponible para nodos VINSON (nodo: {nodo.TipoConector})" });
+        }
+
+        if (fechaDesde > fechaHasta)
+        {
+            return BadRequest(new { message = "fechaDesde debe ser menor o igual a fechaHasta" });
+        }
+
+        var resultado = await _vinsonExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta, reprocesar: true);
+
+        if (resultado.Success)
+        {
+            return Ok(resultado);
+        }
+        else
+        {
+            return StatusCode(500, resultado);
+        }
+    }
+
+    /// <summary>
     /// Ejecuta extraccion desde la ultima fecha con datos hasta ayer
     /// </summary>
     [HttpPost("{id:int}/ejecutar-desde-ultimo")]
