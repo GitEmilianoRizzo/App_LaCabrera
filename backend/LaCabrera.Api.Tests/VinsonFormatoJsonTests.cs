@@ -27,4 +27,20 @@ public class VinsonFormatoJsonTests
         var linea = VinsonImportes.CalcularLinea(Producto(json));
         Assert.Equal(anulado, linea.EstaAnulado);
     }
+
+    [Fact]
+    public void Medio_de_pago_sale_de_payments_en_el_formato_nuevo()
+    {
+        var json = """[{"transactionId": 1, "payments": [{"paymentMethodId": 3, "paymentMethod": "Efectivo", "amount": 1000.0}, {"paymentMethodId": 7, "paymentMethod": "Mercado Pago QR", "amount": 25000.0}], "products": []}]""";
+        var detalle = JsonSerializer.Deserialize<List<VinsonSalesFullInfo>>(json, Opciones)![0];
+        Assert.Equal("Mercado Pago QR", detalle.MedioPagoPrincipal);
+    }
+
+    [Fact]
+    public void Medio_de_pago_del_formato_viejo_sigue_funcionando()
+    {
+        var json = """[{"transactionId": 1, "metodoPago": "Efectivo", "products": []}]""";
+        var detalle = JsonSerializer.Deserialize<List<VinsonSalesFullInfo>>(json, Opciones)![0];
+        Assert.Equal("Efectivo", detalle.MedioPagoPrincipal);
+    }
 }

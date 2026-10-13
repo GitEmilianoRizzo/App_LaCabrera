@@ -690,18 +690,19 @@ public class VinsonExtractorService : IVinsonExtractorService
         }
 
         // Insertar medio de pago (si viene en detalle)
-        if (!string.IsNullOrEmpty(detalle?.MetodoPago))
+        var metodoPago = detalle?.MedioPagoPrincipal;
+        if (!string.IsNullOrEmpty(metodoPago))
         {
             var mapeosPago = await connection.QueryAsync<(string CodigoOrigen, string MedioPagoDestino)>(@"
                 SELECT CodigoOrigen, MedioPagoDestino FROM dim.MapeoMedioPago WHERE NodoConexionId = @NodoId",
                 new { NodoId = nodoConexionId }, tx);
             var mapeosPagoDict = mapeosPago.ToDictionary(m => m.CodigoOrigen, m => m.MedioPagoDestino, StringComparer.OrdinalIgnoreCase);
 
-            var codigoMedioPago = mapeosPagoDict.GetValueOrDefault(detalle.MetodoPago, "OTHER");
+            var codigoMedioPago = mapeosPagoDict.GetValueOrDefault(metodoPago, "OTHER");
 
-            if (codigoMedioPago == "OTHER" && !string.IsNullOrEmpty(detalle.MetodoPago))
+            if (codigoMedioPago == "OTHER")
             {
-                await RegistrarValorNoMapeadoAsync(nodoConexionId, "MEDIO_PAGO", detalle.MetodoPago, detalle.MetodoPago);
+                await RegistrarValorNoMapeadoAsync(nodoConexionId, "MEDIO_PAGO", metodoPago, metodoPago);
             }
 
             await connection.ExecuteAsync(@"
@@ -917,6 +918,29 @@ public class VinsonSalesFullInfo
 
     [JsonPropertyName("products")]
     public List<VinsonProduct>? Products { get; set; }
+
+    // Formato nuevo (oct-2026): los pagos vienen en una lista en lugar de metodoPago
+    [JsonPropertyName("payments")]
+    public List<VinsonPayment>? Payments { get; set; }
+
+    /// <summary>Medio de pago del ticket: metodoPago (formato viejo) o el pago de mayor importe (formato nuevo).</summary>
+    [JsonIgnore]
+    public string? MedioPagoPrincipal =>
+        !string.IsNullOrEmpty(MetodoPago)
+            ? MetodoPago
+            : Payments?.OrderByDescending(p => p.Amount ?? 0).FirstOrDefault()?.PaymentMethod;
+}
+
+public class VinsonPayment
+{
+    [JsonPropertyName("paymentMethodId")]
+    public int? PaymentMethodId { get; set; }
+
+    [JsonPropertyName("paymentMethod")]
+    public string? PaymentMethod { get; set; }
+
+    [JsonPropertyName("amount")]
+    public decimal? Amount { get; set; }
 }
 
 public class VinsonProduct
