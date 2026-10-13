@@ -948,8 +948,31 @@ public class VinsonProduct
     [JsonPropertyName("group")]
     public string? Group { get; set; }
 
+    // Vinson lo mandaba como texto ("True"/"False") y desde oct-2026 como booleano: se aceptan ambos
     [JsonPropertyName("canceledItem")]
-    public string? CanceledItem { get; set; } // "True" o "False" como string
+    [JsonConverter(typeof(TextoFlexibleConverter))]
+    public string? CanceledItem { get; set; }
+}
+
+/// <summary>
+/// Lee un campo de texto aunque venga como booleano o número (true → "True", 1 → "1").
+/// Evita que un cambio de tipo en la API del POS rompa la extracción de todo el día.
+/// </summary>
+public class TextoFlexibleConverter : JsonConverter<string?>
+{
+    public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        reader.TokenType switch
+        {
+            JsonTokenType.String => reader.GetString(),
+            JsonTokenType.True => "True",
+            JsonTokenType.False => "False",
+            JsonTokenType.Number => System.Text.Encoding.UTF8.GetString(reader.ValueSpan),
+            JsonTokenType.Null => null,
+            _ => throw new JsonException($"Tipo no esperado para texto: {reader.TokenType}")
+        };
+
+    public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value);
 }
 
 #endregion
