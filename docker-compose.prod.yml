@@ -40,6 +40,8 @@ services:
       - ConnectionStrings__LaCabreraDb=${DB_CONNECTION_STRING}
       - Serilog__MinimumLevel__Default=Warning
       - Jwt__Secret=${JWT_SECRET}
+      # Parser (Toast/TXT): contenedor lacabrera-parser en la misma red; dentro del contenedor localhost no sirve
+      - ParserService__BaseUrl=${PARSER_SERVICE_URL:-http://lacabrera-parser:8000}
     networks:
       - lacabrera-network
     healthcheck:
