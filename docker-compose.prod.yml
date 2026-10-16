@@ -54,6 +54,28 @@ services:
     volumes:
       - api-logs:/app/logs
 
+  # ----------------------------------------
+  # Parser de archivos (Toast HTML + CSV, TXT). Python/FastAPI
+  # Solo lo usa la API (http://lacabrera-parser:8000 por la red interna);
+  # el puerto queda publicado solo en localhost para diagnóstico.
+  # ----------------------------------------
+  parser:
+    build:
+      context: services/parser-service
+    image: lacabrera-parser
+    container_name: lacabrera-parser
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - lacabrera-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: always
+
 networks:
   lacabrera-network:
     driver: bridge
