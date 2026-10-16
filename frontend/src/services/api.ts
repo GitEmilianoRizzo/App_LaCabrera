@@ -21,6 +21,7 @@ import type {
   // Transacciones
   Transaccion,
   TransaccionDetalle,
+  FechaMaximaCarga,
 } from '@/types/dashboard'
 import type {
   NodoConexion,
@@ -191,6 +192,16 @@ function buildQueryString(filters?: DashboardFilters): string {
 }
 
 export const dashboardApi = {
+  // Última fecha con ventas cargadas (para cerrar el mes en curso en el último día con datos)
+  async getFechaMaximaCarga(filtros: { franquiciaId?: number | null; pais?: string }): Promise<FechaMaximaCarga> {
+    const params = new URLSearchParams()
+    if (filtros.franquiciaId) params.append('franquiciaId', filtros.franquiciaId.toString())
+    if (filtros.pais) params.append('pais', filtros.pais)
+    const query = params.toString()
+    const response = await apiClient.get<FechaMaximaCarga>(`/dashboard/fecha-maxima-carga${query ? `?${query}` : ''}`)
+    return response.data
+  },
+
   // Dashboard Home
   async getHomeDashboard(filters?: DashboardFilters): Promise<HomeDashboard[]> {
     const query = buildQueryString(filters)

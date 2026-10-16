@@ -710,6 +710,20 @@ public class DiaRankingDto
 }
 
 /// <summary>
+/// Última fecha de negocio con ventas cargadas (para cerrar el mes en curso en el último día con datos)
+/// </summary>
+public class FechaMaximaCargaDto
+{
+    /// <summary>Máxima FechaNegocio con tickets no anulados, según filtros. Null si no hay datos.</summary>
+    [JsonPropertyName("fecha_maxima")]
+    public DateTime? FechaMaxima { get; set; }
+
+    /// <summary>Fecha actual del servidor, para decidir cuál es el mes en curso.</summary>
+    [JsonPropertyName("fecha_servidor")]
+    public DateTime FechaServidor { get; set; }
+}
+
+/// <summary>
 /// Ventas del día con comparativos
 /// </summary>
 public class VentasDelDiaDto
