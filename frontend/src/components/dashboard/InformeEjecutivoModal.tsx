@@ -61,6 +61,19 @@ function describir(p: PeriodoState): string {
   return `${format(parseISO(r.desde), 'dd/MM/yyyy')} al ${format(parseISO(r.hasta), 'dd/MM/yyyy')}`
 }
 
+// En celular/tablet el selector nativo no siempre se abre al tocar el campo dentro del modal (T-499):
+// con el dedo se abre explícitamente. Con mouse no se toca nada (desktop queda igual).
+function abrirSelectorTactil(e: React.PointerEvent<HTMLInputElement>) {
+  if (e.pointerType === 'mouse') return
+  const input = e.currentTarget
+  if (input.disabled || typeof input.showPicker !== 'function') return
+  try {
+    input.showPicker()
+  } catch {
+    // El navegador no lo permite en este contexto: queda el comportamiento nativo
+  }
+}
+
 function PeriodoPicker({
   titulo,
   ayuda,
@@ -116,6 +129,7 @@ function PeriodoPicker({
           type="month"
           value={value.mes}
           disabled={disabled}
+          onPointerUp={abrirSelectorTactil}
           onChange={(e) => onChange({ ...value, mes: e.target.value })}
         />
       ) : (
@@ -123,11 +137,13 @@ function PeriodoPicker({
           <label className="text-xs text-muted-foreground space-y-1">
             <span>Desde</span>
             <Input type="date" value={value.desde} max={value.hasta || undefined} disabled={disabled}
+              onPointerUp={abrirSelectorTactil}
               onChange={(e) => onChange({ ...value, desde: e.target.value })} />
           </label>
           <label className="text-xs text-muted-foreground space-y-1">
             <span>Hasta</span>
             <Input type="date" value={value.hasta} min={value.desde || undefined} disabled={disabled}
+              onPointerUp={abrirSelectorTactil}
               onChange={(e) => onChange({ ...value, hasta: e.target.value })} />
           </label>
         </div>
@@ -214,7 +230,7 @@ export function InformeEjecutivoModal({ open, onOpenChange }: InformeEjecutivoMo
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-lime-600" />
