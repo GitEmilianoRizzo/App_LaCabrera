@@ -20,6 +20,7 @@ public interface IDashboardService
     Task<IEnumerable<VentasPorMealPeriodDto>> GetVentasPorMealPeriodAsync(DashboardFilters filters);
     Task<IEnumerable<DiaRankingDto>> GetDiaRankingAsync(DashboardFilters filters, bool mejores = true, int top = 10);
     Task<IEnumerable<VentasDelDiaDto>> GetVentasDelDiaAsync(DashboardFilters filters);
+    Task<FechaMaximaCargaDto> GetFechaMaximaCargaAsync(DashboardFilters filters);
     Task<IEnumerable<ComparativoMensualDto>> GetComparativoMensualAsync(DashboardFilters filters);
 
     // Tickets / Transacciones
@@ -106,6 +107,15 @@ public class DashboardService : IDashboardService
     public async Task<IEnumerable<VentasDelDiaDto>> GetVentasDelDiaAsync(DashboardFilters filters)
     {
         return await _dashboardRepository.GetVentasDelDiaAsync(filters);
+    }
+
+    public async Task<FechaMaximaCargaDto> GetFechaMaximaCargaAsync(DashboardFilters filters)
+    {
+        return new FechaMaximaCargaDto
+        {
+            FechaMaxima = await _dashboardRepository.GetFechaMaximaCargaAsync(filters),
+            FechaServidor = DateTime.Today
+        };
     }
 
     public async Task<IEnumerable<ComparativoMensualDto>> GetComparativoMensualAsync(DashboardFilters filters)

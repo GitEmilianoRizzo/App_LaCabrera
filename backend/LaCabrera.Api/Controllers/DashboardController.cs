@@ -287,6 +287,26 @@ public class DashboardController : ControllerBase
     }
 
     /// <summary>
+    /// Última fecha con ventas cargadas, para que el mes en curso termine en el último día con datos
+    /// </summary>
+    [HttpGet("fecha-maxima-carga")]
+    [SwaggerOperation(Summary = "Última fecha con ventas cargadas", Description = "MAX(FechaNegocio) de tickets no anulados, filtrable por franquicia y país. Incluye la fecha del servidor.")]
+    [SwaggerResponse(200, "Fecha máxima de carga", typeof(FechaMaximaCargaDto))]
+    public async Task<ActionResult<FechaMaximaCargaDto>> GetFechaMaximaCarga(
+        [FromQuery] int? franquiciaId,
+        [FromQuery] string? pais)
+    {
+        var filters = new DashboardFilters
+        {
+            FranquiciaId = franquiciaId,
+            Pais = pais
+        };
+
+        var data = await _dashboardService.GetFechaMaximaCargaAsync(filters);
+        return Ok(data);
+    }
+
+    /// <summary>
     /// Obtiene comparativo mensual
     /// </summary>
     [HttpGet("v2/ventas/comparativo-mensual")]

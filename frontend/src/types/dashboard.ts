@@ -351,3 +351,9 @@ export interface TrendData {
   valor: number
   franquicia?: string
 }
+
+// Última fecha de negocio con ventas cargadas (fechas en ISO: yyyy-mm-ddT00:00:00)
+export interface FechaMaximaCarga {
+  fecha_maxima: string | null
+  fecha_servidor: string
+}

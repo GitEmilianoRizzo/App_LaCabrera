@@ -22,6 +22,7 @@ public interface IDashboardRepository
     Task<IEnumerable<DiaRankingDto>> GetDiaRankingAsync(DashboardFilters filters, bool mejores = true, int top = 10);
     Task<IEnumerable<VentasDelDiaDto>> GetVentasDelDiaAsync(DashboardFilters filters);
     Task<IEnumerable<ComparativoMensualDto>> GetComparativoMensualAsync(DashboardFilters filters);
+    Task<DateTime?> GetFechaMaximaCargaAsync(DashboardFilters filters);
 
     // Tickets / Transacciones
     Task<IEnumerable<TransaccionDto>> GetTransaccionesByFranquiciaAsync(int franquiciaId, DateTime fechaDesde, DateTime fechaHasta);
@@ -886,6 +887,33 @@ public class DashboardRepository : IDashboardRepository
         sql += $" ORDER BY {orderColumn}";
 
         return await connection.QueryAsync<DiaRankingDto>(sql, parameters);
+    }
+
+    public async Task<DateTime?> GetFechaMaximaCargaAsync(DashboardFilters filters)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+
+        // Misma base que el dashboard: tickets no anulados. No se consideran fechas futuras.
+        var sql = @"
+            SELECT MAX(CAST(vt.FechaNegocio AS DATE))
+            FROM fact.VentaTicket vt
+            INNER JOIN dim.Franquicia f ON f.FranquiciaId = vt.FranquiciaId
+            WHERE vt.EstaAnulado = 0
+              AND vt.FechaNegocio < DATEADD(DAY, 1, CAST(GETDATE() AS DATE))";
+
+        var parameters = new DynamicParameters();
+        if (filters.FranquiciaId.HasValue)
+        {
+            sql += " AND vt.FranquiciaId = @FranquiciaId";
+            parameters.Add("FranquiciaId", filters.FranquiciaId.Value);
+        }
+        if (!string.IsNullOrEmpty(filters.Pais))
+        {
+            sql += " AND f.Pais = @Pais";
+            parameters.Add("Pais", filters.Pais);
+        }
+
+        return await connection.ExecuteScalarAsync<DateTime?>(sql, parameters);
     }
 
     public async Task<IEnumerable<VentasDelDiaDto>> GetVentasDelDiaAsync(DashboardFilters filters)

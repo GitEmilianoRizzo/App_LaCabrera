@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Calendar, Filter, X, FileSpreadsheet, ChevronDown, ChevronUp, Search, Store } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { dashboardApi } from '@/services/api'
 
 interface FilterBarProps {
   onFilterChange: (filters: FilterValues) => void
@@ -57,6 +58,23 @@ function parseDateDisplay(dateStr: string): { year: number; month: number; day: 
   }
 }
 
+// Mes en curso (según la fecha del servidor): "hasta" = última fecha con ventas cargadas, así el mes
+// se compara solo hasta el último día con datos. Sin ventas en el mes: hoy. Otro mes: null (sin cambios).
+async function calcularHastaMesEnCurso(
+  desdeDisplay: string,
+  filtros: { pais: string; franquiciaId: number | null }
+): Promise<string | null> {
+  const desde = parseDateDisplay(desdeDisplay)
+  if (!desde || desde.day !== 1) return null
+
+  const { fecha_maxima, fecha_servidor } = await dashboardApi.getFechaMaximaCarga(filtros)
+  const hoy = fecha_servidor.slice(0, 10)
+  if (hoy.slice(0, 7) !== formatDateApi(desde.year, desde.month, 1).slice(0, 7)) return null
+
+  const maxima = fecha_maxima?.slice(0, 10)
+  return maxima && maxima >= formatDateApi(desde.year, desde.month, 1) ? maxima : hoy
+}
+
 function isValidDisplayDate(dateStr: string): boolean {
   const parsed = parseDateDisplay(dateStr)
   if (!parsed) return false
@@ -98,6 +116,10 @@ export function FilterBar({ onFilterChange, franquicias, initialFilters, onExpor
 
   // Mobile: show/hide filters
   const [showFilters, setShowFilters] = useState(false)
+
+  // "Hasta" puesto por la app (default, selector de mes, limpiar). Si el usuario lo edita, no se pisa.
+  const hastaAutomatico = useRef(true)
+  const ultimaConsultaHasta = useRef(0)
 
   // Track if there are pending changes
   const [hasChanges, setHasChanges] = useState(false)
@@ -153,6 +175,53 @@ export function FilterBar({ onFilterChange, franquicias, initialFilters, onExpor
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ]
 
+  // Ajusta "hasta" del mes en curso a la última fecha cargada; con aplicar=true además lo aplica
+  const ajustarHastaMesEnCurso = async (
+    desdeDisplay: string,
+    pais: string,
+    franquiciaId: number | null,
+    aplicar: boolean
+  ) => {
+    const consulta = ++ultimaConsultaHasta.current
+    let hasta: string | null
+    try {
+      hasta = await calcularHastaMesEnCurso(desdeDisplay, { pais, franquiciaId })
+    } catch {
+      return // Si falla la consulta queda el comportamiento de siempre (último día del mes)
+    }
+    if (!hasta || consulta !== ultimaConsultaHasta.current || !hastaAutomatico.current) return
+
+    setLocalHasta(apiToDisplay(hasta))
+    if (aplicar) {
+      const nuevos: FilterValues = { fechaDesde: displayToApi(desdeDisplay), fechaHasta: hasta, pais, franquiciaId }
+      setAppliedFilters(nuevos)
+      onFilterChange(nuevos)
+    }
+  }
+
+  // Al abrir: si el período es el mes en curso completo (default), cerrarlo en la última fecha cargada
+  useEffect(() => {
+    const esDefault =
+      appliedFilters.fechaDesde === defaultDesdeApi && appliedFilters.fechaHasta === defaultHastaApi
+    if (esDefault) {
+      ajustarHastaMesEnCurso(localDesde, appliedFilters.pais, appliedFilters.franquiciaId, true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // La última fecha cargada depende de país/franquicia: recalcular si "hasta" no fue editado a mano
+  // (se compara contra el valor anterior: un re-render o el doble efecto de StrictMode no cuentan como cambio)
+  const filtrosPrevios = useRef({ pais: localPais, franquiciaId: localFranquiciaId })
+  useEffect(() => {
+    const previos = filtrosPrevios.current
+    if (previos.pais === localPais && previos.franquiciaId === localFranquiciaId) return
+    filtrosPrevios.current = { pais: localPais, franquiciaId: localFranquiciaId }
+    if (hastaAutomatico.current) {
+      ajustarHastaMesEnCurso(localDesde, localPais, localFranquiciaId, false)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localPais, localFranquiciaId])
+
   // Check for changes whenever local values change
   useEffect(() => {
     const changed =
@@ -177,8 +246,11 @@ export function FilterBar({ onFilterChange, franquicias, initialFilters, onExpor
     setSelectedYear(year)
     setSelectedMonth(month)
     const lastDay = getLastDayOfMonth(year, month)
-    setLocalDesde(formatDateDisplay(year, month, 1))
+    const desde = formatDateDisplay(year, month, 1)
+    setLocalDesde(desde)
     setLocalHasta(formatDateDisplay(year, month, lastDay))
+    hastaAutomatico.current = true
+    ajustarHastaMesEnCurso(desde, localPais, localFranquiciaId, false)
   }
 
   // Apply filters
@@ -224,6 +296,8 @@ export function FilterBar({ onFilterChange, franquicias, initialFilters, onExpor
     setAppliedFilters(defaultFilters)
     onFilterChange(defaultFilters)
     setHasChanges(false)
+    hastaAutomatico.current = true
+    ajustarHastaMesEnCurso(defaultDesdeDisplay, '', null, true)
   }
 
   const hasActiveFilters = appliedFilters.pais !== '' || appliedFilters.franquiciaId !== null
@@ -326,7 +400,7 @@ export function FilterBar({ onFilterChange, franquicias, initialFilters, onExpor
                 <input
                   type="text"
                   value={localHasta}
-                  onChange={(e) => setLocalHasta(e.target.value)}
+                  onChange={(e) => { hastaAutomatico.current = false; setLocalHasta(e.target.value) }}
                   placeholder="DD-MM-YYYY"
                   className={`px-3 py-1.5 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-cabrera-burgundy/50 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white w-32 ${
                     !isValidDisplayDate(localHasta) && localHasta.length === 10 ? 'border-red-500' : ''
@@ -347,7 +421,7 @@ export function FilterBar({ onFilterChange, franquicias, initialFilters, onExpor
                   id="date-picker-hasta"
                   type="date"
                   value={displayToApi(localHasta)}
-                  onChange={(e) => setLocalHasta(apiToDisplay(e.target.value))}
+                  onChange={(e) => { hastaAutomatico.current = false; setLocalHasta(apiToDisplay(e.target.value)) }}
                   className="absolute opacity-0 w-0 h-0"
                   tabIndex={-1}
                 />
