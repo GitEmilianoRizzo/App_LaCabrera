@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { format, parseISO, startOfMonth, endOfMonth, subMonths, differenceInCalendarDays } from 'date-fns'
 import { es } from 'date-fns/locale'
 import {
@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { FileText, Download, Loader2, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react'
+import { FileText, Download, Loader2, AlertCircle, CheckCircle2, ArrowRight, CalendarDays } from 'lucide-react'
 import { dashboardApi } from '@/services/api'
 import { cn } from '@/lib/utils'
 
@@ -59,6 +59,72 @@ function describir(p: PeriodoState): string {
     return txt.charAt(0).toUpperCase() + txt.slice(1)
   }
   return `${format(parseISO(r.desde), 'dd/MM/yyyy')} al ${format(parseISO(r.hasta), 'dd/MM/yyyy')}`
+}
+
+// En celular/tablet el selector nativo no siempre se abre al tocar el campo dentro del modal (T-499):
+// con el dedo se abre explícitamente. Con mouse no se toca nada (desktop queda igual).
+function abrirSelectorTactil(e: React.PointerEvent<HTMLInputElement>) {
+  if (e.pointerType === 'mouse') return
+  const input = e.currentTarget
+  if (input.disabled || typeof input.showPicker !== 'function') return
+  try {
+    input.showPicker()
+  } catch {
+    // El navegador no lo permite en este contexto: queda el comportamiento nativo
+  }
+}
+
+const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+// Mes y año con dos selects: el input type="month" no existe en varios navegadores móviles (T-499)
+function SelectorMes({ value, onChange, disabled }: { value: string; onChange: (mes: string) => void; disabled: boolean }) {
+  const [anio, mes] = value ? value.split('-') : ['', '']
+  const anioActual = new Date().getFullYear()
+  const anios = Array.from({ length: 4 }, (_, i) => String(anioActual - i))
+  const clase = 'h-10 rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50'
+  return (
+    <div className="grid grid-cols-[1fr_auto] gap-2">
+      <select aria-label="Mes" className={clase} value={mes} disabled={disabled}
+        onChange={(e) => onChange(`${anio || anioActual}-${e.target.value}`)}>
+        {MESES.map((nombre, i) => (
+          <option key={nombre} value={String(i + 1).padStart(2, '0')}>{nombre}</option>
+        ))}
+      </select>
+      <select aria-label="Año" className={clase} value={anio} disabled={disabled}
+        onChange={(e) => onChange(`${e.target.value}-${mes || '01'}`)}>
+        {anios.map((a) => <option key={a} value={a}>{a}</option>)}
+      </select>
+    </div>
+  )
+}
+
+// Fecha nativa con un botón de calendario visible (en celular el campo no muestra ícono)
+function CampoFecha({ value, min, max, disabled, onChange, etiqueta }: {
+  value: string; min?: string; max?: string; disabled: boolean; onChange: (v: string) => void; etiqueta: string
+}) {
+  const ref = useRef<HTMLInputElement>(null)
+  const abrir = () => {
+    const input = ref.current
+    if (!input || input.disabled) return
+    input.focus()
+    try {
+      input.showPicker?.()
+    } catch {
+      // El navegador no lo permite: queda el campo con foco para tocarlo/escribir
+    }
+  }
+  return (
+    <div className="relative">
+      <Input ref={ref} type="date" value={value} min={min} max={max} disabled={disabled}
+        className="pr-10 [&::-webkit-calendar-picker-indicator]:hidden"
+        onPointerUp={abrirSelectorTactil} onChange={(e) => onChange(e.target.value)} />
+      <button type="button" aria-label={`Abrir calendario: ${etiqueta}`} disabled={disabled} onClick={abrir}
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground disabled:opacity-50">
+        <CalendarDays className="h-4 w-4" />
+      </button>
+    </div>
+  )
 }
 
 function PeriodoPicker({
@@ -112,23 +178,18 @@ function PeriodoPicker({
       </div>
 
       {value.modo === 'mes' ? (
-        <Input
-          type="month"
-          value={value.mes}
-          disabled={disabled}
-          onChange={(e) => onChange({ ...value, mes: e.target.value })}
-        />
+        <SelectorMes value={value.mes} disabled={disabled} onChange={(mes) => onChange({ ...value, mes })} />
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs text-muted-foreground space-y-1">
             <span>Desde</span>
-            <Input type="date" value={value.desde} max={value.hasta || undefined} disabled={disabled}
-              onChange={(e) => onChange({ ...value, desde: e.target.value })} />
+            <CampoFecha etiqueta="desde" value={value.desde} max={value.hasta || undefined} disabled={disabled}
+              onChange={(desde) => onChange({ ...value, desde })} />
           </label>
           <label className="text-xs text-muted-foreground space-y-1">
             <span>Hasta</span>
-            <Input type="date" value={value.hasta} min={value.desde || undefined} disabled={disabled}
-              onChange={(e) => onChange({ ...value, hasta: e.target.value })} />
+            <CampoFecha etiqueta="hasta" value={value.hasta} min={value.desde || undefined} disabled={disabled}
+              onChange={(hasta) => onChange({ ...value, hasta })} />
           </label>
         </div>
       )}
@@ -214,7 +275,7 @@ export function InformeEjecutivoModal({ open, onOpenChange }: InformeEjecutivoMo
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[92dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5 text-lime-600" />
