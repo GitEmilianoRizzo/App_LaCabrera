@@ -283,10 +283,19 @@ public class ConexionRepository : IConexionRepository
     {
         using var connection = _connectionFactory.CreateConnection();
 
+        // Al activar un conector, la franquicia deja de figurar PENDING en Estado de Integración.
+        // Los otros estados (OK / WARNING / ERROR) los actualiza cada sincronización.
         await connection.ExecuteAsync(@"
             UPDATE dim.NodoConexion
             SET Estado = @Estado, ModificadoEn = GETUTCDATE()
-            WHERE NodoConexionId = @NodoConexionId",
+            WHERE NodoConexionId = @NodoConexionId;
+
+            IF @Estado = 'ACTIVE'
+                UPDATE f
+                SET EstadoIntegracion = 'ACTIVE', FechaModificacion = SYSDATETIME()
+                FROM dim.Franquicia f
+                JOIN dim.NodoConexion n ON n.FranquiciaId = f.FranquiciaId
+                WHERE n.NodoConexionId = @NodoConexionId AND f.EstadoIntegracion = 'PENDING';",
             new { NodoConexionId = nodoConexionId, Estado = estado });
     }
 
