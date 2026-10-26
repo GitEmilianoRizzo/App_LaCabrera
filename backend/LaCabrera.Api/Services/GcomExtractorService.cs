@@ -714,7 +714,7 @@ public class GcomSyncConfig
     /// <summary>Requests por día que puede usar ESTE ambiente. Si dos ambientes usan el mismo token, la suma no debe pasar el cupo de GCOM.</summary>
     [JsonPropertyName("max_requests_dia")] public int MaxRequestsDia { get; set; } = 5;
     [JsonPropertyName("zona_horaria")] public string? ZonaHoraria { get; set; } = "America/Sao_Paulo";
-    /// <summary>Si el job automático (GcomSync:Enabled) sincroniza este nodo.</summary>
+    /// <summary>Si la sincronización diaria (ConectoresSyncJob) incluye este nodo.</summary>
     [JsonPropertyName("auto")] public bool Auto { get; set; }
 }
 
