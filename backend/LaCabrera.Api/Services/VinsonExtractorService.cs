@@ -115,7 +115,8 @@ public class VinsonExtractorService : IVinsonExtractorService
             if (string.IsNullOrEmpty(token))
             {
                 await RegistrarFinEjecucionAsync(ejecucionId.Value, "ERROR", 0, 0, 1, "No se pudo obtener token JWT");
-                return new EjecucionResultDto { Success = false, Message = "Error de autenticación con Vinson", EjecucionId = ejecucionId };
+                await MarcarErrorSincronizacionAsync(nodoConexionId, nodo.FranquiciaId);
+                return new EjecucionResultDto { Success = false, Message = MensajeErrorAutenticacion, ErrorsCount = 1, EjecucionId = ejecucionId };
             }
 
             var client = _httpClientFactory.CreateClient();
@@ -131,7 +132,8 @@ public class VinsonExtractorService : IVinsonExtractorService
             {
                 var errorBody = await responseCab.Content.ReadAsStringAsync();
                 await RegistrarFinEjecucionAsync(ejecucionId.Value, "ERROR", 0, 0, 1, $"HTTP {(int)responseCab.StatusCode}: {errorBody}");
-                return new EjecucionResultDto { Success = false, Message = $"Error API Vinson (cabeceras): HTTP {(int)responseCab.StatusCode}", EjecucionId = ejecucionId };
+                await MarcarErrorSincronizacionAsync(nodoConexionId, nodo.FranquiciaId);
+                return new EjecucionResultDto { Success = false, Message = $"Error API Vinson (cabeceras): HTTP {(int)responseCab.StatusCode}", ErrorsCount = 1, EjecucionId = ejecucionId };
             }
 
             var jsonCabeceras = await responseCab.Content.ReadAsStringAsync();
@@ -246,17 +248,14 @@ public class VinsonExtractorService : IVinsonExtractorService
                 await RegistrarFinEjecucionAsync(ejecucionId.Value, "ERROR", 0, 0, 1, ex.Message);
             }
 
-            return new EjecucionResultDto { Success = false, Message = ex.Message, EjecucionId = ejecucionId };
+            return new EjecucionResultDto { Success = false, Message = ex.Message, ErrorsCount = 1, EjecucionId = ejecucionId };
         }
     }
 
     public async Task<EjecucionResultDto> EjecutarExtraccionRangoAsync(int nodoConexionId, DateTime fechaDesde, DateTime fechaHasta, bool reprocesar = false)
     {
-        var resultado = new EjecucionResultDto { Success = true };
-        int totalTickets = 0;
-        int totalLineas = 0;
-        int totalErrores = 0;
-        int diasProcesados = 0;
+        var resumen = new ResumenRangoExtraccion();
+        var diasSinProcesar = 0;
 
         _logger.LogInformation("Iniciando extracción Vinson de rango {Desde} a {Hasta} para nodo {NodoId}",
             fechaDesde.ToString("yyyy-MM-dd"), fechaHasta.ToString("yyyy-MM-dd"), nodoConexionId);
@@ -267,11 +266,14 @@ public class VinsonExtractorService : IVinsonExtractorService
             {
                 _logger.LogInformation("Procesando día {Fecha}...", fecha.ToString("yyyy-MM-dd"));
                 var resultadoDia = await EjecutarExtraccionAsync(nodoConexionId, fecha, reprocesar);
+                resumen.Agregar(fecha, resultadoDia);
 
-                totalTickets += resultadoDia.TicketsProcesados;
-                totalLineas += resultadoDia.LineasProcesadas;
-                totalErrores += resultadoDia.ErrorsCount;
-                diasProcesados++;
+                // Sin login los días que siguen fallarían igual: se corta el rango
+                if (!resultadoDia.Success && resultadoDia.Message == MensajeErrorAutenticacion)
+                {
+                    diasSinProcesar = (fechaHasta - fecha).Days;
+                    break;
+                }
 
                 // Pausa para no sobrecargar la API
                 await Task.Delay(500);
@@ -279,17 +281,15 @@ public class VinsonExtractorService : IVinsonExtractorService
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Error procesando día {Fecha}, continuando...", fecha.ToString("yyyy-MM-dd"));
-                totalErrores++;
+                resumen.AgregarExcepcion(fecha, ex);
             }
         }
 
-        resultado.TicketsProcesados = totalTickets;
-        resultado.LineasProcesadas = totalLineas;
-        resultado.ErrorsCount = totalErrores;
-        resultado.Message = $"Rango completado: {diasProcesados} días procesados, {totalTickets} tickets, {totalLineas} líneas";
-
-        _logger.LogInformation("Extracción Vinson de rango completada: {Dias} días, {Tickets} tickets, {Lineas} líneas, {Errores} errores",
-            diasProcesados, totalTickets, totalLineas, totalErrores);
+        var resultado = resumen.Resultado(diasSinProcesar);
+        if (resultado.Success)
+            _logger.LogInformation("Extracción Vinson de rango completada: {Mensaje}", resultado.Message);
+        else
+            _logger.LogError("Extracción Vinson de rango con errores: {Mensaje}", resultado.Message);
 
         return resultado;
     }
@@ -723,6 +723,20 @@ public class VinsonExtractorService : IVinsonExtractorService
 
         tx.Commit();
         return (ticketId, lineasCount);
+    }
+
+    private const string MensajeErrorAutenticacion = "Error de autenticación con Vinson";
+
+    /// <summary>Deja el nodo y la franquicia en ERROR cuando no se pudo extraer (no hay batch que registrar).</summary>
+    private async Task MarcarErrorSincronizacionAsync(int nodoConexionId, int franquiciaId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        await connection.ExecuteAsync(@"
+            UPDATE dim.NodoConexion SET UltimaSincronizacion = GETUTCDATE(), UltimoEstado = 'ERROR', ModificadoEn = GETUTCDATE()
+            WHERE NodoConexionId = @NodoId;
+            UPDATE dim.Franquicia SET EstadoIntegracion = 'ERROR', UltimaSincronizacion = GETUTCDATE()
+            WHERE FranquiciaId = @FranquiciaId;",
+            new { NodoId = nodoConexionId, FranquiciaId = franquiciaId });
     }
 
     private async Task RegistrarValorNoMapeadoAsync(int nodoConexionId, string tipoMapeo, string codigoOrigen, string? nombreOrigen)
