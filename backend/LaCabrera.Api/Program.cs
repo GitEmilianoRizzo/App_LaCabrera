@@ -61,6 +61,7 @@ builder.Services.AddScoped<IConexionService, ConexionService>();
 builder.Services.AddScoped<IAgoraExtractorService, AgoraExtractorService>();
 builder.Services.AddScoped<IVinsonExtractorService, VinsonExtractorService>();
 builder.Services.AddScoped<IAyresItExtractorService, AyresItExtractorService>();
+builder.Services.AddScoped<IGcomExtractorService, GcomExtractorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInformeEjecutivoService, InformeEjecutivoService>();
 builder.Services.AddSingleton<IPdfRenderer, ChromiumPdfRenderer>();
@@ -80,6 +81,9 @@ builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
 
 // Background Job para refresh diario de tasas
 builder.Services.AddHostedService<ExchangeRateRefreshJob>();
+
+// Job diario de GCOM (Brasil): respeta el cupo de requests por día de cada tienda
+builder.Services.AddHostedService<GcomSyncJob>();
 
 // HttpClient para llamadas a APIs externas (Ágora, Vinson, etc)
 builder.Services.AddHttpClient();

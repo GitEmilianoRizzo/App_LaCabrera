@@ -14,6 +14,7 @@ public class ConexionController : ControllerBase
     private readonly IAgoraExtractorService _agoraExtractor;
     private readonly IVinsonExtractorService _vinsonExtractor;
     private readonly IAyresItExtractorService _ayresItExtractor;
+    private readonly IGcomExtractorService _gcomExtractor;
     private readonly ITxtParserService _txtParserService;
     private readonly IIngestionService _ingestionService;
 
@@ -22,6 +23,7 @@ public class ConexionController : ControllerBase
         IAgoraExtractorService agoraExtractor,
         IVinsonExtractorService vinsonExtractor,
         IAyresItExtractorService ayresItExtractor,
+        IGcomExtractorService gcomExtractor,
         ITxtParserService txtParserService,
         IIngestionService ingestionService)
     {
@@ -29,6 +31,7 @@ public class ConexionController : ControllerBase
         _agoraExtractor = agoraExtractor;
         _vinsonExtractor = vinsonExtractor;
         _ayresItExtractor = ayresItExtractor;
+        _gcomExtractor = gcomExtractor;
         _txtParserService = txtParserService;
         _ingestionService = ingestionService;
     }
@@ -247,9 +250,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _ayresItExtractor.EjecutarExtraccionAsync(id, fechaNegocio);
         }
+        else if (tipoConector == "GCOM")
+        {
+            resultado = await _gcomExtractor.EjecutarExtraccionAsync(id, fechaNegocio);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM" });
         }
 
         if (resultado.Success)
@@ -305,9 +312,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _ayresItExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta);
         }
+        else if (tipoConector == "GCOM")
+        {
+            resultado = await _gcomExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM" });
         }
 
         if (resultado.Success)
@@ -338,9 +349,10 @@ public class ConexionController : ControllerBase
             return NotFound(new { message = $"Nodo con id {id} no encontrado" });
         }
 
-        if (!nodo.TipoConector.ToUpperInvariant().StartsWith("VINSON"))
+        var tipoConector = nodo.TipoConector.ToUpperInvariant();
+        if (!tipoConector.StartsWith("VINSON") && tipoConector != "GCOM")
         {
-            return BadRequest(new { message = $"El reproceso solo está disponible para nodos VINSON (nodo: {nodo.TipoConector})" });
+            return BadRequest(new { message = $"El reproceso solo está disponible para nodos VINSON y GCOM (nodo: {nodo.TipoConector})" });
         }
 
         if (fechaDesde > fechaHasta)
@@ -348,7 +360,10 @@ public class ConexionController : ControllerBase
             return BadRequest(new { message = "fechaDesde debe ser menor o igual a fechaHasta" });
         }
 
-        var resultado = await _vinsonExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta, reprocesar: true);
+        // GCOM reprocesa desde el crudo guardado: no consume cupo de la API
+        var resultado = tipoConector == "GCOM"
+            ? await _gcomExtractor.ReprocesarDesdeCrudoAsync(id, fechaDesde, fechaHasta)
+            : await _vinsonExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta, reprocesar: true);
 
         if (resultado.Success)
         {
@@ -395,9 +410,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _ayresItExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
         }
+        else if (tipoConector == "GCOM")
+        {
+            resultado = await _gcomExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado para este modo. Tipos validos: AGORA*, VINSON*, AYRESIT" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado para este modo. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM" });
         }
 
         if (resultado.Success)
@@ -408,6 +427,42 @@ public class ConexionController : ControllerBase
         {
             return StatusCode(500, resultado);
         }
+    }
+
+    /// <summary>
+    /// Cupo de requests a GCOM del día y días pendientes de la carga histórica
+    /// </summary>
+    [HttpGet("{id:int}/gcom/cupo")]
+    [SwaggerOperation(Summary = "Cupo GCOM", Description = "Requests usados hoy (zona horaria de la tienda), disponibles y días pendientes desde sync.fecha_inicio")]
+    [SwaggerResponse(200, "Estado del cupo", typeof(GcomCupoDto))]
+    public async Task<ActionResult<GcomCupoDto>> GetCupoGcom(int id)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null) return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        if (nodo.TipoConector.ToUpperInvariant() != "GCOM") return BadRequest(new { message = "El nodo no es GCOM" });
+
+        return Ok(await _gcomExtractor.GetCupoAsync(id));
+    }
+
+    /// <summary>
+    /// Carga un día de GCOM desde una respuesta de Vendas2 ya bajada (por ejemplo en otro ambiente)
+    /// </summary>
+    [HttpPost("{id:int}/gcom/importar-crudo")]
+    [SwaggerOperation(Summary = "Importar crudo GCOM", Description = "Recibe el JSON de Vendas2 de un día y lo carga sin llamar a la API (no consume cupo)")]
+    [SwaggerResponse(200, "Día cargado", typeof(EjecucionResultDto))]
+    [RequestSizeLimit(50_000_000)]
+    public async Task<ActionResult<EjecucionResultDto>> ImportarCrudoGcom(int id, [FromQuery] DateTime fechaNegocio)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null) return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        if (nodo.TipoConector.ToUpperInvariant() != "GCOM") return BadRequest(new { message = "El nodo no es GCOM" });
+
+        using var reader = new StreamReader(Request.Body);
+        var json = await reader.ReadToEndAsync();
+        if (string.IsNullOrWhiteSpace(json)) return BadRequest(new { message = "Falta el JSON de Vendas2 en el cuerpo" });
+
+        var resultado = await _gcomExtractor.ImportarCrudoAsync(id, fechaNegocio, json);
+        return resultado.Success ? Ok(resultado) : BadRequest(resultado);
     }
 
     /// <summary>
