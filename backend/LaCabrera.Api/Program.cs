@@ -82,8 +82,8 @@ builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
 // Background Job para refresh diario de tasas
 builder.Services.AddHostedService<ExchangeRateRefreshJob>();
 
-// Job diario de GCOM (Brasil): respeta el cupo de requests por día de cada tienda
-builder.Services.AddHostedService<GcomSyncJob>();
+// Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT y GCOM)
+builder.Services.AddHostedService<ConectoresSyncJob>();
 
 // HttpClient para llamadas a APIs externas (Ágora, Vinson, etc)
 builder.Services.AddHttpClient();
