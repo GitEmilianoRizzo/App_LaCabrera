@@ -42,6 +42,8 @@ services:
       - Jwt__Secret=${JWT_SECRET}
       # Parser (Toast/TXT): contenedor lacabrera-parser en la misma red; dentro del contenedor localhost no sirve
       - ParserService__BaseUrl=${PARSER_SERVICE_URL:-http://lacabrera-parser:8000}
+      # Job diario de GCOM (Brasil). Apagado salvo que se habilite en el .env del servidor
+      - GcomSync__Enabled=${GCOM_SYNC_ENABLED:-false}
     networks:
       - lacabrera-network
     healthcheck:
