@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Plug, CheckCircle, AlertTriangle, XCircle, Clock, Pencil, Save, Loader2, Search, X } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -156,11 +156,13 @@ export function EstadoIntegracion() {
     return 'OK'
   }
 
+  // Conectada = tiene un conector configurado (cualquier estado que no sea PENDING)
+  const esPendiente = (item: EstadoIntegracionType) =>
+    (item.estado_integracion ?? 'PENDING').toUpperCase() === 'PENDING'
+
   const counts = {
-    ok: data?.filter(f => getAlertaNivel(f) === 'OK').length || 0,
-    warning: data?.filter(f => getAlertaNivel(f) === 'WARNING').length || 0,
-    critical: data?.filter(f => getAlertaNivel(f) === 'CRITICAL').length || 0,
-    neverSynced: data?.filter(f => getAlertaNivel(f) === 'NEVER_SYNCED').length || 0,
+    conectadas: data?.filter(f => !esPendiente(f)).length || 0,
+    pendientes: data?.filter(f => esPendiente(f)).length || 0,
   }
 
   const columns = [
@@ -324,40 +326,16 @@ export function EstadoIntegracion() {
         </p>
       )}
 
-      {/* Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Conectadas vs pendientes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border-l-4 border-l-green-500">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Sincronizadas</p>
-                <p className="text-2xl font-bold text-green-600">{counts.ok}</p>
+                <p className="text-sm text-muted-foreground">Conectadas</p>
+                <p className="text-2xl font-bold text-green-600">{counts.conectadas}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-yellow-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Con Alerta</p>
-                <p className="text-2xl font-bold text-yellow-600">{counts.warning}</p>
-              </div>
-              <AlertTriangle className="w-8 h-8 text-yellow-500" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-red-500">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Criticas</p>
-                <p className="text-2xl font-bold text-red-600">{counts.critical}</p>
-              </div>
-              <XCircle className="w-8 h-8 text-red-500" />
             </div>
           </CardContent>
         </Card>
@@ -366,40 +344,14 @@ export function EstadoIntegracion() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Sin Integrar</p>
-                <p className="text-2xl font-bold text-gray-600">{counts.neverSynced}</p>
+                <p className="text-sm text-muted-foreground">Pendientes de conectar</p>
+                <p className="text-2xl font-bold text-gray-600">{counts.pendientes}</p>
               </div>
               <Plug className="w-8 h-8 text-gray-400" />
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Alert Summary */}
-      {(counts.critical > 0 || counts.warning > 0) && (
-        <Card className="bg-amber-50 border-amber-200">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2 text-amber-800">
-              <AlertTriangle className="w-5 h-5" />
-              Atencion Requerida
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="text-sm text-amber-700 space-y-1">
-              {counts.critical > 0 && (
-                <li>
-                  {counts.critical} franquicia(s) con estado critico - mas de 3 dias sin sincronizar
-                </li>
-              )}
-              {counts.warning > 0 && (
-                <li>
-                  {counts.warning} franquicia(s) con alerta - entre 1 y 3 dias sin sincronizar
-                </li>
-              )}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Table */}
       <DataTable
