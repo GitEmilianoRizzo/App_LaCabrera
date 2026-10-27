@@ -44,6 +44,8 @@ services:
       - ParserService__BaseUrl=${PARSER_SERVICE_URL:-http://lacabrera-parser:8000}
       # Sincronización diaria de los conectores por API (10:00 hora argentina). Apagada salvo que se habilite en el .env del servidor
       - SyncConectores__Enabled=${SYNC_CONECTORES_ENABLED:-false}
+      # Clave de la cuenta de servicio de Google Drive (Colombia). Vive en el servidor, fuera del repo
+      - GoogleDrive__CredencialesPath=/app/secrets/gdrive-sa.json
     networks:
       - lacabrera-network
     healthcheck:
@@ -55,6 +57,7 @@ services:
     restart: always
     volumes:
       - api-logs:/app/logs
+      - ./secrets/gdrive-sa.json:/app/secrets/gdrive-sa.json:ro
 
   # ----------------------------------------
   # Parser de archivos (Toast HTML + CSV, TXT). Python/FastAPI

@@ -15,6 +15,7 @@ public class ConexionController : ControllerBase
     private readonly IVinsonExtractorService _vinsonExtractor;
     private readonly IAyresItExtractorService _ayresItExtractor;
     private readonly IGcomExtractorService _gcomExtractor;
+    private readonly IDriveJsonConectorService _driveConector;
     private readonly ITxtParserService _txtParserService;
     private readonly IIngestionService _ingestionService;
 
@@ -24,6 +25,7 @@ public class ConexionController : ControllerBase
         IVinsonExtractorService vinsonExtractor,
         IAyresItExtractorService ayresItExtractor,
         IGcomExtractorService gcomExtractor,
+        IDriveJsonConectorService driveConector,
         ITxtParserService txtParserService,
         IIngestionService ingestionService)
     {
@@ -32,6 +34,7 @@ public class ConexionController : ControllerBase
         _vinsonExtractor = vinsonExtractor;
         _ayresItExtractor = ayresItExtractor;
         _gcomExtractor = gcomExtractor;
+        _driveConector = driveConector;
         _txtParserService = txtParserService;
         _ingestionService = ingestionService;
     }
@@ -463,6 +466,37 @@ public class ConexionController : ControllerBase
 
         var resultado = await _gcomExtractor.ImportarCrudoAsync(id, fechaNegocio, json);
         return resultado.Success ? Ok(resultado) : BadRequest(resultado);
+    }
+
+    /// <summary>
+    /// Archivos de la carpeta de Drive del nodo: cuántos ya están cargados y cuáles faltan
+    /// </summary>
+    [HttpGet("{id:int}/drive/estado")]
+    [SwaggerOperation(Summary = "Estado de la carpeta de Drive", Description = "Lista qué archivos de la carpeta ya se cargaron y cuáles faltan, sin cargar nada")]
+    [SwaggerResponse(200, "Estado de la carpeta", typeof(DriveEstadoDto))]
+    public async Task<ActionResult<DriveEstadoDto>> GetEstadoDrive(int id)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null) return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+
+        try { return Ok(await _driveConector.GetEstadoAsync(id)); }
+        catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+    }
+
+    /// <summary>
+    /// Carga los archivos nuevos de la carpeta de Drive del nodo
+    /// </summary>
+    [HttpPost("{id:int}/drive/sincronizar")]
+    [SwaggerOperation(Summary = "Sincronizar carpeta de Drive", Description = "Descarga y carga los JSON de la carpeta que todavía no estén cargados")]
+    [SwaggerResponse(200, "Sincronización completada", typeof(EjecucionResultDto))]
+    public async Task<ActionResult<EjecucionResultDto>> SincronizarDrive(int id)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null) return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        if (nodo.Estado != "ACTIVE") return BadRequest(new { message = $"Nodo no esta activo. Estado actual: {nodo.Estado}" });
+
+        var resultado = await _driveConector.SincronizarAsync(id);
+        return resultado.Success ? Ok(resultado) : StatusCode(500, resultado);
     }
 
     /// <summary>
