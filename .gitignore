@@ -103,3 +103,6 @@ coverage/
 # ----------------------------------------
 prompts_*.md
 read_excel.ps1
+
+# Claves que viven solo en el servidor (p. ej. cuenta de servicio de Google Drive)
+secrets/

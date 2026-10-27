@@ -4,7 +4,7 @@ using LaCabrera.Api.Configuration;
 namespace LaCabrera.Api.Services;
 
 /// <summary>
-/// Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT y GCOM).
+/// Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT y GCOM) y de las carpetas de Drive (Colombia).
 /// Una vez por día, a la hora local configurada, ejecuta "desde el último día con datos"
 /// en cada nodo PULL activo, uno por vez:
 /// - Ágora, Vinson y Ayres IT: piden desde el primer hueco de los últimos 60 días hasta ayer.
@@ -94,7 +94,13 @@ public class ConectoresSyncJob : BackgroundService
                    OR (TipoConector = 'GCOM' AND JSON_VALUE(ConfiguracionJson, '$.sync.auto') = 'true'))
             ORDER BY NodoConexionId")).ToList();
 
-        _logger.LogWarning("ConectoresSyncJob: sincronizando {Cantidad} conectores", nodos.Count);
+        // Conectores que leen JSON de una carpeta de Google Drive (Colombia)
+        var nodosDrive = (await connection.QueryAsync<(int Id, string Codigo)>(@"
+            SELECT NodoConexionId, Codigo FROM dim.NodoConexion
+            WHERE Estado = 'ACTIVE' AND Activo = 1 AND JSON_VALUE(ConfiguracionJson, '$.drive.auto') = 'true'
+            ORDER BY NodoConexionId")).ToList();
+
+        _logger.LogWarning("ConectoresSyncJob: sincronizando {Cantidad} conectores por API y {Drive} por Drive", nodos.Count, nodosDrive.Count);
 
         foreach (var nodo in nodos)
         {
@@ -119,6 +125,23 @@ public class ConectoresSyncJob : BackgroundService
             catch (Exception ex)
             {
                 // Un conector que falla no frena a los demás
+                _logger.LogError(ex, "ConectoresSyncJob {Codigo}: error inesperado", nodo.Codigo);
+            }
+        }
+
+        foreach (var nodo in nodosDrive)
+        {
+            if (stoppingToken.IsCancellationRequested) break;
+            try
+            {
+                var resultado = await sp.GetRequiredService<IDriveJsonConectorService>().SincronizarAsync(nodo.Id, "SCHEDULED", stoppingToken);
+                if (resultado.Success)
+                    _logger.LogWarning("ConectoresSyncJob {Codigo}: {Mensaje}", nodo.Codigo, resultado.Message);
+                else
+                    _logger.LogError("ConectoresSyncJob {Codigo} con error: {Mensaje}", nodo.Codigo, resultado.Message);
+            }
+            catch (Exception ex)
+            {
                 _logger.LogError(ex, "ConectoresSyncJob {Codigo}: error inesperado", nodo.Codigo);
             }
         }
