@@ -2,12 +2,13 @@ import { useState, useMemo } from 'react'
 import { AlertTriangle, Calendar, DollarSign, Ticket, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useHomeDashboard } from '@/hooks/useDashboard'
+import { useHomeDashboard, useEstadoIntegracion } from '@/hooks/useDashboard'
 import { dashboardApi } from '@/services/api'
 import { formatCurrency, formatNumber } from '@/lib/utils'
 import { LoadingPage } from '@/components/dashboard/LoadingState'
 
 type MetricType = 'venta' | 'cubiertos' | 'tickets'
+type FiltroConexion = 'todas' | 'activas' | 'sin'
 
 interface DayData {
   fecha: string
@@ -43,6 +44,15 @@ export function Alertas() {
   const [metric, setMetric] = useState<MetricType>('venta')
   const [dailyData, setDailyData] = useState<FranquiciaDayData[]>([])
   const [loading, setLoading] = useState(false)
+  const [filtroConexion, setFiltroConexion] = useState<FiltroConexion>('todas')
+
+  // Conexión activa = tiene un conector configurado (mismo criterio que Estado de Integración)
+  const { data: estadoIntegracion } = useEstadoIntegracion()
+  const conectadas = useMemo(() => new Set(
+    (estadoIntegracion ?? [])
+      .filter(e => (e.estado_integracion ?? 'PENDING').toUpperCase() !== 'PENDING')
+      .map(e => e.franquicia_id)
+  ), [estadoIntegracion])
 
   // Get franchises from dashboard
   const { data: dashboardData, loading: loadingFranquicias } = useHomeDashboard({
@@ -156,11 +166,39 @@ export function Alertas() {
     return 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
   }
 
+  const fechaDelDia = (day: number) =>
+    `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+  // Franquicias visibles: filtradas por conexión y ordenadas de más a menos días con datos
+  const filas = useMemo(() => {
+    const today = new Date()
+    // Un día está cargado si tiene ventas o tickets, sin importar la métrica que se esté viendo
+    const diasConDatos = (f: FranquiciaDayData) => daysInMonth.filter(day => {
+      const d = f.days[fechaDelDia(day)]
+      return new Date(selectedYear, selectedMonth, day) <= today && ((d?.total_tickets ?? 0) > 0 || (d?.venta_neta ?? 0) > 0)
+    }).length
+    const total = (f: FranquiciaDayData) => daysInMonth.reduce((sum, day) => sum + getCellValue(f.days[fechaDelDia(day)]), 0)
+
+    return dailyData
+      .filter(f => filtroConexion === 'todas'
+        || (filtroConexion === 'activas' ? conectadas.has(f.franquicia_id) : !conectadas.has(f.franquicia_id)))
+      .map(f => ({ franquicia: f, dias: diasConDatos(f), total: total(f) }))
+      .sort((a, b) => b.dias - a.dias || b.total - a.total
+        || a.franquicia.franquicia_nombre.localeCompare(b.franquicia.franquicia_nombre))
+      .map(x => x.franquicia)
+  }, [dailyData, filtroConexion, conectadas, daysInMonth, selectedYear, selectedMonth, metric])
+
+  const cantidadPorFiltro = {
+    todas: dailyData.length,
+    activas: dailyData.filter(f => conectadas.has(f.franquicia_id)).length,
+    sin: dailyData.filter(f => !conectadas.has(f.franquicia_id)).length,
+  }
+
   // Count total gaps
   const totalGaps = useMemo(() => {
     const today = new Date()
     let gaps = 0
-    for (const franquicia of dailyData) {
+    for (const franquicia of filas) {
       for (const day of daysInMonth) {
         const cellDate = new Date(selectedYear, selectedMonth, day)
         if (cellDate > today) continue
@@ -173,7 +211,7 @@ export function Alertas() {
       }
     }
     return gaps
-  }, [dailyData, daysInMonth, selectedYear, selectedMonth, metric])
+  }, [filas, daysInMonth, selectedYear, selectedMonth, metric])
 
   if (loadingFranquicias) {
     return <LoadingPage />
@@ -190,6 +228,31 @@ export function Alertas() {
         <p className="text-muted-foreground">
           Visualización de datos faltantes por franquicia y día
         </p>
+      </div>
+
+      {/* Filtro por conexión */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium">Ver:</span>
+        <div className="flex rounded-lg border dark:border-gray-600 overflow-hidden">
+          {([
+            ['todas', 'Todas'],
+            ['activas', 'Con conexión activa'],
+            ['sin', 'Sin conexión activa'],
+          ] as const).map(([valor, etiqueta], i) => (
+            <button
+              key={valor}
+              onClick={() => setFiltroConexion(valor)}
+              className={`px-3 py-1.5 text-sm transition-colors ${i > 0 ? 'border-l dark:border-gray-600' : ''} ${
+                filtroConexion === valor
+                  ? 'bg-cabrera-burgundy text-white'
+                  : 'bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'
+              }`}
+            >
+              {etiqueta}
+              {dailyData.length > 0 && <span className="ml-1 opacity-75">({cantidadPorFiltro[valor]})</span>}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Controls */}
@@ -308,7 +371,7 @@ export function Alertas() {
                 </tr>
               </thead>
               <tbody>
-                {dailyData.map(franquicia => {
+                {filas.map(franquicia => {
                   // Calculate row total
                   let rowTotal = 0
                   for (const day of daysInMonth) {
@@ -353,7 +416,7 @@ export function Alertas() {
                   </td>
                   {daysInMonth.map(day => {
                     let colTotal = 0
-                    for (const franquicia of dailyData) {
+                    for (const franquicia of filas) {
                       const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                       colTotal += getCellValue(franquicia.days[dateStr])
                     }
@@ -366,7 +429,7 @@ export function Alertas() {
                   <td className="px-2 py-2 text-right">
                     {metric === 'venta'
                       ? formatCurrency(
-                          dailyData.reduce((sum, f) => {
+                          filas.reduce((sum, f) => {
                             let total = 0
                             for (const day of daysInMonth) {
                               const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
@@ -377,7 +440,7 @@ export function Alertas() {
                           'USD'
                         )
                       : formatNumber(
-                          dailyData.reduce((sum, f) => {
+                          filas.reduce((sum, f) => {
                             let total = 0
                             for (const day of daysInMonth) {
                               const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
