@@ -46,6 +46,8 @@ services:
       - SyncConectores__Enabled=${SYNC_CONECTORES_ENABLED:-false}
       # Clave de la cuenta de servicio de Google Drive (Colombia). Vive en el servidor, fuera del repo
       - GoogleDrive__CredencialesPath=/app/secrets/gdrive-sa.json
+      # Contraseña de la casilla de Chile (sync_cabrera_chile@pillow.com.ar). Vive en el servidor, fuera del repo
+      - MicrosMail__PasswordPath=/app/secrets/imap-chile.txt
     networks:
       - lacabrera-network
     healthcheck:
@@ -58,6 +60,7 @@ services:
     volumes:
       - api-logs:/app/logs
       - ./secrets/gdrive-sa.json:/app/secrets/gdrive-sa.json:ro
+      - ./secrets/imap-chile.txt:/app/secrets/imap-chile.txt:ro
 
   # ----------------------------------------
   # Parser de archivos (Toast HTML + CSV, TXT). Python/FastAPI
