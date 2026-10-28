@@ -64,6 +64,8 @@ builder.Services.AddScoped<IAyresItExtractorService, AyresItExtractorService>();
 builder.Services.AddScoped<IGcomExtractorService, GcomExtractorService>();
 builder.Services.AddScoped<IGoogleDriveClient, GoogleDriveClient>();
 builder.Services.AddScoped<IDriveJsonConectorService, DriveJsonConectorService>();
+builder.Services.Configure<MicrosMailSettings>(builder.Configuration.GetSection("MicrosMail"));
+builder.Services.AddScoped<IMicrosMailConectorService, MicrosMailConectorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInformeEjecutivoService, InformeEjecutivoService>();
 builder.Services.AddSingleton<IPdfRenderer, ChromiumPdfRenderer>();

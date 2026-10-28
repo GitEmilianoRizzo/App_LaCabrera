@@ -4,7 +4,7 @@ using LaCabrera.Api.Configuration;
 namespace LaCabrera.Api.Services;
 
 /// <summary>
-/// Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT y GCOM) y de las carpetas de Drive (Colombia).
+/// Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT y GCOM) de las carpetas de Drive (Colombia) y de la casilla de mail de Chile (MICROS).
 /// Una vez por día, a la hora local configurada, ejecuta "desde el último día con datos"
 /// en cada nodo PULL activo, uno por vez:
 /// - Ágora, Vinson y Ayres IT: piden desde el primer hueco de los últimos 60 días hasta ayer.
@@ -143,6 +143,23 @@ public class ConectoresSyncJob : BackgroundService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ConectoresSyncJob {Codigo}: error inesperado", nodo.Codigo);
+            }
+        }
+
+        // Casilla de mail de Chile (MICROS): una sola lectura reparte los archivos a cada local
+        if (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                var resultado = await sp.GetRequiredService<IMicrosMailConectorService>().SincronizarAsync("SCHEDULED", stoppingToken);
+                if (resultado.Success)
+                    _logger.LogWarning("ConectoresSyncJob MICROS_MAIL: {Mensaje}", resultado.Message);
+                else
+                    _logger.LogError("ConectoresSyncJob MICROS_MAIL con error: {Mensaje}", resultado.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ConectoresSyncJob MICROS_MAIL: error inesperado");
             }
         }
     }

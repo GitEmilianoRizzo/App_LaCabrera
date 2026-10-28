@@ -16,6 +16,7 @@ public class ConexionController : ControllerBase
     private readonly IAyresItExtractorService _ayresItExtractor;
     private readonly IGcomExtractorService _gcomExtractor;
     private readonly IDriveJsonConectorService _driveConector;
+    private readonly IMicrosMailConectorService _microsMail;
     private readonly ITxtParserService _txtParserService;
     private readonly IIngestionService _ingestionService;
 
@@ -26,6 +27,7 @@ public class ConexionController : ControllerBase
         IAyresItExtractorService ayresItExtractor,
         IGcomExtractorService gcomExtractor,
         IDriveJsonConectorService driveConector,
+        IMicrosMailConectorService microsMail,
         ITxtParserService txtParserService,
         IIngestionService ingestionService)
     {
@@ -35,6 +37,7 @@ public class ConexionController : ControllerBase
         _ayresItExtractor = ayresItExtractor;
         _gcomExtractor = gcomExtractor;
         _driveConector = driveConector;
+        _microsMail = microsMail;
         _txtParserService = txtParserService;
         _ingestionService = ingestionService;
     }
@@ -497,6 +500,35 @@ public class ConexionController : ControllerBase
 
         var resultado = await _driveConector.SincronizarAsync(id);
         return resultado.Success ? Ok(resultado) : StatusCode(500, resultado);
+    }
+
+    /// <summary>
+    /// Lee la casilla de Chile y carga los archivos MICROS de los mails nuevos
+    /// </summary>
+    [HttpPost("micros-mail/sincronizar")]
+    [SwaggerOperation(Summary = "Sincronizar casilla MICROS (Chile)", Description = "Lee los mails de remitentes autorizados, carga los GeneralLedger de los locales configurados y archiva los mails cargados")]
+    [SwaggerResponse(200, "Sincronización completada", typeof(EjecucionResultDto))]
+    public async Task<ActionResult<EjecucionResultDto>> SincronizarMicrosMail()
+    {
+        var resultado = await _microsMail.SincronizarAsync();
+        return resultado.Success ? Ok(resultado) : StatusCode(500, resultado);
+    }
+
+    /// <summary>
+    /// Carga un archivo GeneralLedger de MICROS (GL_*.txt) para un local, sin pasar por la casilla
+    /// </summary>
+    [HttpPost("{id:int}/micros/importar-archivo")]
+    [SwaggerOperation(Summary = "Importar archivo MICROS", Description = "Recibe el contenido de un GL_*.txt (texto plano) y lo carga para el local del nodo")]
+    [SwaggerResponse(200, "Archivo cargado", typeof(EjecucionResultDto))]
+    [RequestSizeLimit(50_000_000)]
+    public async Task<ActionResult<EjecucionResultDto>> ImportarArchivoMicros(int id)
+    {
+        using var reader = new StreamReader(Request.Body);
+        var contenido = await reader.ReadToEndAsync();
+        if (string.IsNullOrWhiteSpace(contenido)) return BadRequest(new { message = "Falta el contenido del archivo GL_*.txt" });
+
+        var resultado = await _microsMail.ImportarArchivoAsync(id, contenido, "importación manual");
+        return resultado.Success ? Ok(resultado) : BadRequest(resultado);
     }
 
     /// <summary>
