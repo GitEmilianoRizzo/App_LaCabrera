@@ -441,6 +441,13 @@ public class AyresItExtractorService : IAyresItExtractorService
             return (0, 0);
         }
 
+        // Mozo: el vendedor de Ayres se busca (o se crea) entre los mozos de la franquicia.
+        // Antes se guardaba el código de Ayres como si fuera el MozoId: el ticket quedaba asignado a un mozo
+        // de otra franquicia o se rechazaba por la FK. Nunca se rechaza una venta por el mozo.
+        var mozoId = venta.IdVendedor.HasValue
+            ? await ResolverMozoAsync(connection, franquiciaId, venta.IdVendedor.Value)
+            : null;
+
         // Determinar estado
         var estaAnulado = venta.Estado == "X" || venta.Estado == "A";
         var estaCerrado = venta.Estado == "C";
@@ -489,7 +496,7 @@ public class AyresItExtractorService : IAyresItExtractorService
                 Cubiertos = venta.CantidadConsumidores ?? 0,
                 Mesa = venta.SectorTipo,
                 Sector = venta.SectorTipo,
-                MozoId = venta.IdVendedor?.ToString(),
+                MozoId = mozoId,
                 MozoNombre = (string?)null,
                 ImporteBruto = importeBruto,
                 ImporteNetoSinImpuesto = importeNeto,
@@ -571,6 +578,25 @@ public class AyresItExtractorService : IAyresItExtractorService
         }
 
         return (ticketId, lineasProcesadas);
+    }
+
+    /// <summary>
+    /// MozoId del vendedor de Ayres en la franquicia. Si no existe se crea como "Vendedor {código}"
+    /// (Ayres no informa el nombre); si ya existe no se toca, para no pisar un nombre cargado a mano.
+    /// </summary>
+    private static async Task<int?> ResolverMozoAsync(System.Data.IDbConnection connection, int franquiciaId, int idVendedor)
+    {
+        var externalId = idVendedor.ToString();
+        return await connection.QuerySingleAsync<int>(@"
+            DECLARE @MozoId INT = (SELECT MozoId FROM dim.Mozo WHERE FranquiciaId = @FranquiciaId AND ExternalId = @ExternalId);
+            IF @MozoId IS NULL
+            BEGIN
+                INSERT INTO dim.Mozo (FranquiciaId, ExternalId, Nombre, FuenteSistema, EsActivo)
+                VALUES (@FranquiciaId, @ExternalId, @Nombre, 'AYRESIT', 1);
+                SET @MozoId = SCOPE_IDENTITY();
+            END
+            SELECT @MozoId;",
+            new { FranquiciaId = franquiciaId, ExternalId = externalId, Nombre = $"Vendedor {idVendedor}" });
     }
 
     private DateTime? ParseFechaAyresIt(string? fechaStr)
