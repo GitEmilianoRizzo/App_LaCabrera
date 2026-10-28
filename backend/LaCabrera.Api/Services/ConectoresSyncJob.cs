@@ -28,6 +28,7 @@ public class ConectoresSyncJob : BackgroundService
     private readonly int _hora;
     private readonly int _minuto;
     private readonly TimeZoneInfo _zona;
+    private readonly DateTime? _recargaAyresDesde;
 
     public ConectoresSyncJob(IServiceProvider serviceProvider, ILogger<ConectoresSyncJob> logger, IConfiguration configuration)
     {
@@ -37,6 +38,9 @@ public class ConectoresSyncJob : BackgroundService
         _hora = configuration.GetValue("SyncConectores:HoraLocal", 10);
         _minuto = configuration.GetValue("SyncConectores:Minuto", 0);
         _zona = ZonaHoraria(configuration.GetValue("SyncConectores:ZonaHoraria", "America/Argentina/Buenos_Aires")!);
+        // Solo para corridas puntuales: vuelve a pedir a Ayres IT desde esa fecha hasta ayer (carga lo que
+        // falte sin duplicar lo existente). En la corrida diaria normal no se configura.
+        _recargaAyresDesde = configuration.GetValue<DateTime?>("SyncConectores:RecargaAyresDesde");
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -112,6 +116,8 @@ public class ConectoresSyncJob : BackgroundService
                 {
                     _ when tipo.StartsWith("AGORA") => await sp.GetRequiredService<IAgoraExtractorService>().EjecutarExtraccionDesdeUltimoAsync(nodo.Id),
                     _ when tipo.StartsWith("VINSON") => await sp.GetRequiredService<IVinsonExtractorService>().EjecutarExtraccionDesdeUltimoAsync(nodo.Id),
+                    "AYRESIT" when _recargaAyresDesde.HasValue => await sp.GetRequiredService<IAyresItExtractorService>()
+                        .EjecutarExtraccionRangoAsync(nodo.Id, _recargaAyresDesde.Value.Date, DateTime.Today.AddDays(-1)),
                     "AYRESIT" => await sp.GetRequiredService<IAyresItExtractorService>().EjecutarExtraccionDesdeUltimoAsync(nodo.Id),
                     "GCOM" => await sp.GetRequiredService<IGcomExtractorService>().EjecutarExtraccionDesdeUltimoAsync(nodo.Id, "SCHEDULED"),
                     _ => new EjecucionResultDto { Success = false, Message = $"Tipo {nodo.TipoConector} sin sincronización automática" }
