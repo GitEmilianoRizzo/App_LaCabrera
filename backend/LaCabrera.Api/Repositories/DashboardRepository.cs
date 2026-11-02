@@ -386,17 +386,24 @@ public class DashboardRepository : IDashboardRepository
                 v.TotalCubiertos,
                 v.VentaBruta,
                 v.TotalDescuentos,
-                v.VentaNeta,
+                -- Venta neta con la misma definición que el Dashboard (home): sin impuestos y sin cargo por
+                -- servicio. Así Alertas, el gráfico diario y el total del Dashboard dan lo mismo.
+                ISNULL(n.VentaNeta, 0) AS VentaNeta,
                 -- Conversion a USD
                 CASE
-                    WHEN v.MonedaCodigo = 'USD' THEN v.VentaNeta
-                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN v.VentaNeta / tc.UnidadesPorUsd
+                    WHEN v.MonedaCodigo = 'USD' THEN ISNULL(n.VentaNeta, 0)
+                    WHEN tc.UnidadesPorUsd IS NOT NULL AND tc.UnidadesPorUsd > 0 THEN ISNULL(n.VentaNeta, 0) / tc.UnidadesPorUsd
                     ELSE NULL
                 END AS VentaNetaUsd,
                 tc.UnidadesPorUsd AS TipoCambio,
                 v.TicketPromedio,
-                v.VentaPorCubierto
+                ISNULL(n.VentaNeta, 0) / NULLIF(v.TotalCubiertos, 0) AS VentaPorCubierto
             FROM fact.vw_VentasResumenDiario v
+            OUTER APPLY (
+                SELECT SUM(COALESCE(x.ImporteNetoSinImpuesto, x.ImporteNeto) - ISNULL(x.ImporteServicio, 0)) AS VentaNeta
+                FROM fact.VentaTicket x
+                WHERE x.FranquiciaId = v.FranquiciaId AND x.FechaNegocio = v.FechaNegocio AND x.EstaAnulado = 0
+            ) n
             OUTER APPLY (
                 SELECT TOP 1 tc2.UnidadesPorUsd
                 FROM dim.TipoCambio tc2

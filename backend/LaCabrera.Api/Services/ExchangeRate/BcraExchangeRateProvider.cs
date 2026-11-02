@@ -14,7 +14,9 @@ namespace LaCabrera.Api.Services.ExchangeRate;
 ///
 /// CONVERSIÓN A UnidadesPorUsd:
 /// - Para ARS: usar tipoCotizacion del USD directamente (ej: 1499 significa 1499 ARS = 1 USD)
-/// - Para otras monedas: invertir tipoPase (ej: 1/1.168 = 0.856 EUR = 1 USD)
+/// - Para otras monedas: tipoCotizacion(USD) / tipoCotizacion(moneda), ambas en ARS (ej: 1517 / 304.15 = 4.99 BRL = 1 USD).
+///   Es más preciso que invertir tipoPase, que el BCRA redondea a 6 decimales (para COP o CLP deja 3-4 cifras).
+///   Si falta alguna tipoCotizacion, se invierte tipoPase.
 /// </summary>
 public class BcraExchangeRateProvider : IExchangeRateProvider
 {
@@ -24,7 +26,7 @@ public class BcraExchangeRateProvider : IExchangeRateProvider
     private const int DelayBetweenRequestsMs = 150;
 
     // Monedas soportadas por el BCRA (confirmadas en discovery)
-    private static readonly string[] _supportedCurrencies = { "USD", "ARS", "EUR", "COP", "PYG" };
+    private static readonly string[] _supportedCurrencies = { "USD", "ARS", "EUR", "COP", "PYG", "BRL", "CLP" };
 
     public string ProviderCode => "BCRA";
     public IReadOnlyList<string> SupportedCurrencies => _supportedCurrencies;
@@ -122,9 +124,14 @@ public class BcraExchangeRateProvider : IExchangeRateProvider
                     // Para ARS, usar tipoCotizacion del USD
                     unidadesPorUsd = usdCotizacion;
                 }
+                else if (usdCotizacion > 0 && cotizacion.TipoCotizacion > 0)
+                {
+                    // Cruce por pesos argentinos: (ARS por USD) / (ARS por unidad de la moneda)
+                    unidadesPorUsd = usdCotizacion / cotizacion.TipoCotizacion;
+                }
                 else
                 {
-                    // Para otras monedas, invertir tipoPase
+                    // Sin tipoCotizacion, invertir tipoPase
                     if (cotizacion.TipoPase == 0)
                     {
                         results.Add(new ExchangeRateResult

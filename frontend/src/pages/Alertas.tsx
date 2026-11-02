@@ -12,7 +12,8 @@ type FiltroConexion = 'todas' | 'activas' | 'sin'
 
 interface DayData {
   fecha: string
-  venta_neta: number
+  // Venta en USD; null si ese día la moneda no tiene cotización (no se suma moneda local como dólares)
+  venta_neta: number | null
   total_tickets: number
   total_cubiertos: number
 }
@@ -109,7 +110,7 @@ export function Alertas() {
 
         byFranquicia[franquiciaId].days[fecha] = {
           fecha,
-          venta_neta: item.venta_neta_usd || item.venta_neta || 0,
+          venta_neta: item.venta_neta_usd ?? null,
           total_tickets: item.cantidad_tickets || 0,
           total_cubiertos: item.total_cubiertos || 0,
         }
@@ -132,7 +133,7 @@ export function Alertas() {
   const getCellValue = (dayData: DayData | undefined): number => {
     if (!dayData) return 0
     switch (metric) {
-      case 'venta': return dayData.venta_neta
+      case 'venta': return dayData.venta_neta ?? 0
       case 'tickets': return dayData.total_tickets
       case 'cubiertos': return dayData.total_cubiertos
     }
@@ -156,6 +157,11 @@ export function Alertas() {
     // Don't highlight future dates
     if (cellDate > today) {
       return 'bg-gray-100 dark:bg-gray-800 text-gray-400'
+    }
+
+    // Día con ventas pero sin cotización: no hay dólares para mostrar, pero tampoco es un hueco
+    if (metric === 'venta' && dayData && dayData.venta_neta === null && dayData.total_tickets > 0) {
+      return 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-medium'
     }
 
     const value = getCellValue(dayData)
@@ -194,6 +200,10 @@ export function Alertas() {
     sin: dailyData.filter(f => !conectadas.has(f.franquicia_id)).length,
   }
 
+  // Días con ventas que no se pueden pasar a USD por falta de cotización
+  const diasSinCotizacion = useMemo(() => filas.reduce((n, f) =>
+    n + Object.values(f.days).filter(d => d.venta_neta === null && d.total_tickets > 0).length, 0), [filas])
+
   // Count total gaps
   const totalGaps = useMemo(() => {
     const today = new Date()
@@ -205,7 +215,8 @@ export function Alertas() {
 
         const dateStr = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
         const dayData = franquicia.days[dateStr]
-        if (!dayData || getCellValue(dayData) === 0) {
+        const sinCotizacion = metric === 'venta' && dayData?.venta_neta === null && (dayData?.total_tickets ?? 0) > 0
+        if (!sinCotizacion && (!dayData || getCellValue(dayData) === 0)) {
           gaps++
         }
       }
@@ -332,6 +343,15 @@ export function Alertas() {
               {loading ? 'Cargando...' : 'Cargar Datos'}
             </Button>
 
+            {/* Días sin cotización */}
+            {dailyData.length > 0 && metric === 'venta' && diasSinCotizacion > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
+                  {diasSinCotizacion} días con ventas sin cotización (s/TC, no suman en USD)
+                </span>
+              </div>
+            )}
+
             {/* Gap counter */}
             {dailyData.length > 0 && (
               <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-red-100 dark:bg-red-900/30 rounded-lg">
@@ -395,7 +415,9 @@ export function Alertas() {
                             className={`px-1 py-2 text-center ${cellClass}`}
                             title={`${franquicia.franquicia_nombre} - ${dateStr}`}
                           >
-                            {formatCellValue(getCellValue(dayData))}
+                            {metric === 'venta' && dayData && dayData.venta_neta === null && dayData.total_tickets > 0
+                              ? 's/TC'
+                              : formatCellValue(getCellValue(dayData))}
                           </td>
                         )
                       })}
@@ -468,6 +490,10 @@ export function Alertas() {
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded" />
                 <span>Fecha futura</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 bg-amber-100 dark:bg-amber-900/30 rounded" />
+                <span>s/TC: con ventas pero sin cotización de la moneda (no suma en USD)</span>
               </div>
             </div>
           </CardContent>
