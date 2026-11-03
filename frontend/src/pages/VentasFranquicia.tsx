@@ -4,6 +4,7 @@ import { KpiCard } from '@/components/dashboard/KpiCard'
 import { SalesLineChart, MetricOption } from '@/components/charts/SalesLineChart'
 import { HorizontalBarChart } from '@/components/charts/HorizontalBarChart'
 import { ClockChart } from '@/components/charts/ClockChart'
+import { ComparativoDiaSemana } from '@/components/dashboard/ComparativoDiaSemana'
 import { LoadingPage } from '@/components/dashboard/LoadingState'
 import { ErrorBanner } from '@/components/dashboard/ErrorState'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -637,6 +638,12 @@ export function VentasFranquicia() {
               iconColor="bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
             />
           </div>
+
+          {/* Comparativo por día de la semana: períodos en filas, Lunes..Domingo en columnas */}
+          <ComparativoDiaSemana
+            franquiciaId={selectedFranquiciaId}
+            moneda={selectedFranquicia?.moneda_codigo || franquiciasList.find(f => f.id === selectedFranquiciaId)?.moneda || 'Local'}
+          />
 
           {/* Grilla de Totales por Día */}
           <Card>
