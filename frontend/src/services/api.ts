@@ -438,6 +438,27 @@ export const conexionesApi = {
     return response.data
   },
 
+  // Excel de conciliación Toast: Order Details vs Sales Summary (no carga nada)
+  async descargarConciliacionToast(nodoId: number, htmlFile: File, csvZipFile: File): Promise<void> {
+    const formData = new FormData()
+    formData.append('html_file', htmlFile)
+    formData.append('csv_zip', csvZipFile)
+    const response = await apiClient.post<Blob>(`/conexiones/${nodoId}/conciliacion-toast`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      responseType: 'blob',
+    })
+    const disposition = String(response.headers['content-disposition'] ?? '')
+    const nombre = /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? 'Conciliacion_Toast.xlsx'
+    const url = URL.createObjectURL(response.data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nombre
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  },
+
   async parseToastCombined(nodoId: number, htmlFile: File, csvZipFile?: File): Promise<ParseBatchResult> {
     const formData = new FormData()
     formData.append('html_file', htmlFile)

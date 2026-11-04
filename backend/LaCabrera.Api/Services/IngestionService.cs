@@ -85,6 +85,9 @@ public class IngestionService : IIngestionService
             int itemsProcessed = 0;
             decimal totalGross = 0;
             decimal totalNet = 0;
+            decimal totalServicio = 0;
+            decimal totalImpuesto = 0;
+            decimal totalPropina = 0;
 
             // Process tickets
             foreach (var ticket in request.Tickets)
@@ -201,6 +204,9 @@ public class IngestionService : IIngestionService
                     ticketsProcessed++;
                     totalGross += ticket.Amounts.GrossAmount;
                     totalNet += ticket.Amounts.NetAmount;
+                    totalServicio += ticket.Amounts.ServiceChargeAmount ?? 0;
+                    totalImpuesto += ticket.Amounts.TaxAmount ?? 0;
+                    totalPropina += ticket.Amounts.TipAmount ?? 0;
                 }
                 catch (Exception ex)
                 {
@@ -217,19 +223,15 @@ public class IngestionService : IIngestionService
                 }
             }
 
-            // Validate control totals
-            if (request.BatchHeader.ControlTotals.GrossSalesAmount.HasValue)
+            // Validate control totals (bruto, neto, servicio, impuestos y propinas declarados por el origen)
+            var avisosControl = ControlTotalesBatch.Comparar(
+                request.BatchHeader.ControlTotals,
+                new ControlTotalesBatch.Sumas(totalGross, totalNet, totalServicio, totalImpuesto, totalPropina),
+                _settings.ControlTotalsTolerancePercent);
+            foreach (var aviso in avisosControl)
             {
-                var diff = Math.Abs(totalGross - request.BatchHeader.ControlTotals.GrossSalesAmount.Value);
-                var tolerance = request.BatchHeader.ControlTotals.GrossSalesAmount.Value * (decimal)(_settings.ControlTotalsTolerancePercent / 100);
-                if (diff > tolerance && tolerance > 0)
-                {
-                    warnings.Add(new BatchWarning
-                    {
-                        Code = "CONTROL_TOTALS_MISMATCH",
-                        Message = $"Diferencia en gross_sales: recibido {request.BatchHeader.ControlTotals.GrossSalesAmount}, calculado {totalGross}"
-                    });
-                }
+                _logger.LogWarning("Batch {BatchId}: {Mensaje}", request.BatchHeader.BatchId, aviso.Message);
+                warnings.Add(aviso);
             }
 
             // Update batch status

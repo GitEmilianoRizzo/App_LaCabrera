@@ -673,6 +673,34 @@ public class ConexionController : ControllerBase
     }
 
     /// <summary>
+    /// Excel de conciliación de Toast: Order Details vs Sales Summary, por total, por día, órdenes e ítems
+    /// </summary>
+    [HttpPost("{id:int}/conciliacion-toast")]
+    [SwaggerOperation(Summary = "Conciliación Toast", Description = "Excel Order Details (HTML) vs Sales Summary (ZIP) antes de cargar")]
+    [DisableRequestSizeLimit]
+    public async Task<IActionResult> ConciliacionToast(int id, [FromForm] IFormFile html_file, [FromForm] IFormFile csv_zip)
+    {
+        var nodo = await _conexionService.GetNodoByIdAsync(id);
+        if (nodo == null)
+        {
+            return NotFound(new { message = $"Nodo con id {id} no encontrado" });
+        }
+
+        if (html_file == null || csv_zip == null)
+        {
+            return BadRequest(new { message = "Se requieren el HTML del Order Details y el ZIP del Sales Summary" });
+        }
+
+        var (excel, nombre, error) = await _txtParserService.ConciliacionToastAsync(html_file, csv_zip);
+        if (excel == null)
+        {
+            return BadRequest(new { message = error });
+        }
+
+        return File(excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", nombre);
+    }
+
+    /// <summary>
     /// Ingesta los archivos ya parseados
     /// </summary>
     [HttpPost("{id:int}/ingest-parsed")]

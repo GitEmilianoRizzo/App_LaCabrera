@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 from decimal import Decimal
 from bs4 import BeautifulSoup
 from .base_parser import BaseParser, ParseResult
+from .toast_categorias import categorizar
 
 
 class ToastHtmlParserImpl(BaseParser):
@@ -529,42 +530,8 @@ class ToastHtmlParserImpl(BaseParser):
         return result
 
     def _categorize_item(self, name: str) -> str:
-        """Categorize item based on name"""
-        name_lower = name.lower()
-
-        # Beverages
-        if any(w in name_lower for w in ['coke', 'sprite', 'fanta', 'agua', 'water', 'soda', 'juice', 'jugo']):
-            return 'BEVERAGE'
-        if any(w in name_lower for w in ['coffee', 'cafe', 'espresso', 'cappuccino', 'latte']):
-            return 'COFFEE'
-        if any(w in name_lower for w in ['wine', 'vino', 'malbec', 'cabernet', 'merlot', 'chardonnay']):
-            return 'WINE'
-        if any(w in name_lower for w in ['beer', 'cerveza', 'ipa', 'lager']):
-            return 'BEVERAGE'
-        if any(w in name_lower for w in ['cocktail', 'mojito', 'margarita', 'martini', 'whisky', 'gin']):
-            return 'COCKTAIL'
-
-        # Desserts
-        if any(w in name_lower for w in ['flan', 'dulce', 'helado', 'ice cream', 'torta', 'cake', 'brownie', 'alfajor', 'postre', 'dessert']):
-            return 'DESSERT'
-
-        # Main courses (meats)
-        if any(w in name_lower for w in ['bife', 'entra', 'chorizo', 'ojo de bife', 'ribeye', 'steak', 'lomo', 'asado', 'vacio', 'new york', 'skirt', 'costilla', 'mollejas']):
-            return 'MAIN_COURSE'
-
-        # Starters
-        if any(w in name_lower for w in ['empanada', 'provoleta', 'chorizo', 'morcilla', 'ensalada', 'salad']):
-            return 'STARTER'
-
-        # Sides
-        if any(w in name_lower for w in ['papas', 'fries', 'pure', 'vegetales', 'vegetables', 'side', 'warmies', 'calentitos']):
-            return 'SIDE_DISH'
-
-        # Kids
-        if any(w in name_lower for w in ['nino', 'kids', 'infantil']):
-            return 'MAIN_COURSE'
-
-        return 'OTHER'
+        """Categoría por nombre, con la regla compartida de los parsers de Toast"""
+        return categorizar(name)
 
     def _extract_franchise_from_filename(self, filename: str) -> str:
         """Extract franchise code from filename"""

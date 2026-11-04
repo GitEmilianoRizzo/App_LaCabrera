@@ -1,16 +1,21 @@
 """
 Toast Combined Parser - Parses HTML for details + CSV ZIP for official totals
-Cross-validates and adjusts to ensure data integrity.
+Cross-validates against the CSV totals; never alters ticket amounts.
 """
 import re
 import csv
 import zipfile
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from decimal import Decimal, ROUND_HALF_UP
 from bs4 import BeautifulSoup
 from .base_parser import BaseParser, ParseResult
+from .toast_categorias import categorizar
+
+
+# Hora en que cierra el día de negocio en Toast (las órdenes abiertas antes cuentan para el día anterior)
+HORA_CORTE_DIA_NEGOCIO = 5
 
 
 class ToastCombinedParserImpl(BaseParser):
@@ -19,7 +24,7 @@ class ToastCombinedParserImpl(BaseParser):
     - HTML Order Details for ticket/item granularity
     - CSV Sales Summary ZIP for official totals (source of truth)
 
-    Cross-validates and adjusts HTML data to match CSV totals.
+    Cross-validates HTML data against CSV totals and reports differences (amounts are never scaled).
     """
 
     @property
@@ -70,12 +75,11 @@ class ToastCombinedParserImpl(BaseParser):
                     # Calculate HTML totals for filtered tickets only
                     html_totals = self._calculate_totals(filtered_tickets)
 
-                    # Validate and adjust
-                    validation_result = self._validate_and_adjust(
+                    # Validate (reports differences, does not touch the tickets)
+                    validation_result = self._validate_against_csv(
                         filtered_tickets, html_totals, csv_totals
                     )
 
-                    # Update tickets with adjusted values
                     tickets = filtered_tickets
             else:
                 html_totals = html_result['totals']
@@ -121,6 +125,7 @@ class ToastCombinedParserImpl(BaseParser):
                         "net_sales_amount": float(final_totals.get('net_sales', 0)),
                         "tax_amount": float(final_totals.get('tax', 0)),
                         "gratuity_amount": float(final_totals.get('gratuity', 0)),
+                        "service_charge_amount": float(final_totals.get('gratuity', 0)),
                         "tip_amount": float(final_totals.get('tips', 0)),
                         "covers_total": int(final_totals.get('guests', 0))
                     },
@@ -171,6 +176,7 @@ class ToastCombinedParserImpl(BaseParser):
                 totals['items_count'] += 1
 
             amounts = ticket.get('amounts', {})
+            totals['tax'] += sum(Decimal(str(sc.get('tax_amount', 0))) for sc in ticket.get('service_charges') or [])
             totals['gratuity'] += Decimal(str(amounts.get('service_charge_amount', 0)))
             totals['tips'] += Decimal(str(amounts.get('tip_amount', 0)))
             totals['guests'] += ticket.get('covers', 1)
@@ -239,6 +245,12 @@ class ToastCombinedParserImpl(BaseParser):
         items_net = sum(Decimal(str(item.get('net_amount', 0))) for item in items)
         items_tax = sum(Decimal(str(item.get('tax_amount', 0))) for item in items)
         service_charge_amount = sum(Decimal(str(sc.get('amount', 0))) for sc in service_charges)
+        service_charge_tax = sum(Decimal(str(sc.get('tax_amount', 0))) for sc in service_charges)
+        # La propina sale de los pagos (suma de todas las cuentas); si no hay pagos, del encabezado
+        tip_amount = (sum(Decimal(str(p.get('tip_amount', 0))) for p in payments) if payments
+                      else Decimal(str(check_details.get('tip', 0))))
+        tax_amount = items_tax + service_charge_tax
+        items_discount = sum(Decimal(str(item.get('discount_amount', 0))) for item in items)
 
         raw_date = check_details.get('date')
         business_date = datetime.now().strftime('%Y-%m-%d')
@@ -249,7 +261,9 @@ class ToastCombinedParserImpl(BaseParser):
                 dt = datetime.strptime(raw_date, '%m/%d/%y, %I:%M %p')
                 if dt.year < 100:
                     dt = dt.replace(year=dt.year + 2000)
-                business_date = dt.strftime('%Y-%m-%d')
+                # Día de negocio de Toast: una orden abierta después de medianoche (antes del corte)
+                # pertenece al día anterior, igual que en el Sales Summary.
+                business_date = (dt - timedelta(days=1) if dt.hour < HORA_CORTE_DIA_NEGOCIO else dt).strftime('%Y-%m-%d')
                 opened_at_iso = dt.isoformat()
             except:
                 pass
@@ -274,13 +288,18 @@ class ToastCombinedParserImpl(BaseParser):
             "covers": check_details.get('guests', 1),
             "currency": "USD",
             "amounts": {
-                "gross_amount": float(items_net),
-                "discount_amount": float(check_details.get('discount', 0)),
+                "gross_amount": float(items_net + items_discount),
+                "discount_amount": float(items_discount),
+                # net_amount = "Net sales" de Toast (sin impuestos ni servicio).
                 "net_amount": float(items_net),
-                "tax_amount": float(items_tax),
+                # La plataforma calcula la venta neta como net_amount_excl_tax - service_charge_amount
+                # (igual que con el parser HTML anterior), así que acá va el neto + el servicio.
+                "net_amount_excl_tax": float(items_net + service_charge_amount),
+                "tax_amount": float(tax_amount),
                 "service_charge_amount": float(service_charge_amount),
-                "tip_amount": float(check_details.get('tip', 0)),
-                "total_paid_amount": float(items_net + items_tax + service_charge_amount)
+                "tip_amount": float(tip_amount),
+                # Igual que el "Total" del Sales Summary: Net sales + Gratuity + Tax + Tips
+                "total_paid_amount": float(items_net + service_charge_amount + tax_amount + tip_amount)
             },
             "items": items,
             "service_charges": service_charges,
@@ -341,18 +360,14 @@ class ToastCombinedParserImpl(BaseParser):
         """Parse items from order"""
         items = []
 
-        items_table = order_block.find('table', id='order-details-item-table')
-        if not items_table:
-            items_table = order_block.find('table', class_='order-details-table')
+        # Una orden puede tener varias cuentas (checks): se leen las tablas de todas, no solo la primera.
+        tables = order_block.find_all('table', id='order-details-item-table')
+        if not tables:
+            tables = order_block.find_all('table', class_='order-details-table')
 
-        if not items_table:
-            return items
+        rows = [row for table in tables if table.find('tbody') for row in table.find('tbody').find_all('tr')]
 
-        tbody = items_table.find('tbody')
-        if not tbody:
-            return items
-
-        for idx, row in enumerate(tbody.find_all('tr')):
+        for idx, row in enumerate(rows):
             cells = row.find_all('td')
             if len(cells) < 8:
                 continue
@@ -404,15 +419,10 @@ class ToastCombinedParserImpl(BaseParser):
         """Parse service charges"""
         charges = []
 
-        sc_table = order_block.find('table', id='order-details-service-charges-table')
-        if not sc_table:
-            return charges
+        tables = order_block.find_all('table', id='order-details-service-charges-table')
+        rows = [row for table in tables if table.find('tbody') for row in table.find('tbody').find_all('tr')]
 
-        tbody = sc_table.find('tbody')
-        if not tbody:
-            return charges
-
-        for idx, row in enumerate(tbody.find_all('tr')):
+        for idx, row in enumerate(rows):
             cells = row.find_all('td')
             if len(cells) < 4:
                 continue
@@ -438,15 +448,10 @@ class ToastCombinedParserImpl(BaseParser):
         """Parse payments"""
         payments = []
 
-        pay_table = order_block.find('table', id='order-details-payments-table')
-        if not pay_table:
-            return payments
+        tables = order_block.find_all('table', id='order-details-payments-table')
+        rows = [row for table in tables if table.find('tbody') for row in table.find('tbody').find_all('tr')]
 
-        tbody = pay_table.find('tbody')
-        if not tbody:
-            return payments
-
-        for idx, row in enumerate(tbody.find_all('tr')):
+        for idx, row in enumerate(rows):
             cells = row.find_all('td')
             if len(cells) < 6:
                 continue
@@ -459,6 +464,11 @@ class ToastCombinedParserImpl(BaseParser):
                     return 0.0
 
             payment_text = cells[0].get_text().strip()
+            # Columnas: Payment, Date, Amount, Tip, Gratuity, Total, Refund, Status.
+            # Solo cuentan los pagos cobrados: Toast no suma los rechazados (DENIED), anulados (VOIDED) ni cancelados.
+            status = cells[7].get_text().strip().upper() if len(cells) > 7 else 'CAPTURED'
+            if status in ('DENIED', 'VOIDED', 'CANCELLED'):
+                continue
 
             payments.append({
                 "payment_id": f"P{idx + 1}",
@@ -466,7 +476,9 @@ class ToastCombinedParserImpl(BaseParser):
                 "amount": parse_money(cells[2].get_text()),
                 "tip_amount": parse_money(cells[3].get_text()),
                 "gratuity_amount": parse_money(cells[4].get_text()),
-                "total_amount": parse_money(cells[5].get_text())
+                "total_amount": parse_money(cells[5].get_text()),
+                "refund_amount": parse_money(cells[6].get_text()) if len(cells) > 6 else 0.0,
+                "status": status
             })
 
         return payments
@@ -550,15 +562,15 @@ class ToastCombinedParserImpl(BaseParser):
         except Exception as e:
             return {'success': False, 'error': str(e)}
 
-    def _validate_and_adjust(
+    def _validate_against_csv(
         self,
         tickets: List[Dict],
         html_totals: Dict,
         csv_totals: Dict
     ) -> Dict[str, Any]:
         """
-        Validate HTML data against CSV totals and adjust if needed.
-        CSV is the source of truth.
+        Compare HTML totals against the CSV (Toast Sales Summary, the source of truth).
+        Differences above 0.5% are reported as MISMATCH; ticket amounts are left as parsed.
         """
         validation = {
             'status': 'VALIDATED',
@@ -566,7 +578,7 @@ class ToastCombinedParserImpl(BaseParser):
             'html_tickets_count': len(tickets),
             'csv_orders_count': int(csv_totals.get('orders', 0)),
             'comparisons': {},
-            'adjustments': []
+            'differences': []
         }
 
         metrics = ['net_sales', 'gratuity', 'tax', 'tips']
@@ -584,57 +596,28 @@ class ToastCombinedParserImpl(BaseParser):
                 'pct_difference': round(pct_diff, 2)
             }
 
+            # Los importes de los tickets NO se ajustan: escalarlos para forzar el total del CSV
+            # deformaba los importes de cada día. Si no cierra, se informa y la ingesta lo marca como advertencia.
             if abs(pct_diff) > 0.5:  # More than 0.5% difference
-                validation['status'] = 'ADJUSTED'
-                validation['adjustments'].append({
+                validation['status'] = 'MISMATCH'
+                validation['differences'].append({
                     'metric': metric,
-                    'from': round(html_val, 2),
-                    'to': round(csv_val, 2),
-                    'adjustment': round(csv_val - html_val, 2)
+                    'html': round(html_val, 2),
+                    'csv': round(csv_val, 2),
+                    'difference': round(diff, 2)
                 })
 
-        # If we need to adjust net_sales, calculate factor and apply
-        if validation['status'] == 'ADJUSTED':
-            html_net = float(html_totals.get('net_sales', 0))
-            csv_net = float(csv_totals.get('net_sales', 0))
+        if validation['differences']:
+            validation['warning'] = 'El detalle de órdenes (HTML) no cierra contra el Sales Summary (CSV). Revisar antes de usar los datos.'
 
-            if html_net > 0:
-                adjustment_factor = csv_net / html_net
-                validation['adjustment_factor'] = round(adjustment_factor, 6)
-
-                # Only apply if factor is reasonable (between 0.8 and 1.2)
-                if 0.8 <= adjustment_factor <= 1.2:
-                    self._apply_adjustment(tickets, adjustment_factor, csv_totals)
-                    validation['tickets_adjusted'] = True
-                else:
-                    validation['tickets_adjusted'] = False
-                    validation['warning'] = f"Adjustment factor {adjustment_factor:.2f} outside safe range (0.8-1.2). Manual review required."
+        orders_csv = validation['csv_orders_count']
+        if orders_csv and abs(len(tickets) - orders_csv) > max(1, orders_csv * 0.02):
+            validation['status'] = 'MISMATCH'
+            validation['orders_warning'] = (
+                f'El HTML trae {len(tickets)} órdenes y el Sales Summary {orders_csv}: '
+                'puede faltar parte del período o el CSV ser de otro local o rango.')
 
         return validation
-
-    def _apply_adjustment(
-        self,
-        tickets: List[Dict],
-        factor: float,
-        csv_totals: Dict
-    ):
-        """Apply proportional adjustment to tickets"""
-        if factor == 1.0:
-            return
-
-        for ticket in tickets:
-            amounts = ticket.get('amounts', {})
-
-            if 'net_amount' in amounts:
-                amounts['net_amount'] = round(amounts['net_amount'] * factor, 2)
-            if 'gross_amount' in amounts:
-                amounts['gross_amount'] = round(amounts['gross_amount'] * factor, 2)
-
-            for item in ticket.get('items', []):
-                if 'net_amount' in item:
-                    item['net_amount'] = round(item['net_amount'] * factor, 2)
-                if 'gross_amount' in item:
-                    item['gross_amount'] = round(item['gross_amount'] * factor, 2)
 
     def _parse_payment_method(self, text: str) -> str:
         """Parse payment method from text"""
@@ -660,25 +643,8 @@ class ToastCombinedParserImpl(BaseParser):
         ]
 
     def _categorize_item(self, name: str) -> str:
-        """Categorize item based on name"""
-        name_lower = name.lower()
-
-        if any(w in name_lower for w in ['coke', 'sprite', 'agua', 'water', 'soda', 'juice']):
-            return 'BEVERAGE'
-        if any(w in name_lower for w in ['wine', 'vino', 'malbec', 'cabernet']):
-            return 'WINE'
-        if any(w in name_lower for w in ['beer', 'cerveza']):
-            return 'BEVERAGE'
-        if any(w in name_lower for w in ['flan', 'dulce', 'helado', 'postre', 'dessert']):
-            return 'DESSERT'
-        if any(w in name_lower for w in ['bife', 'ribeye', 'steak', 'lomo', 'asado']):
-            return 'MAIN_COURSE'
-        if any(w in name_lower for w in ['empanada', 'provoleta', 'ensalada']):
-            return 'STARTER'
-        if any(w in name_lower for w in ['papas', 'fries', 'pure', 'side']):
-            return 'SIDE_DISH'
-
-        return 'OTHER'
+        """Categoría por nombre, con la regla compartida de los parsers de Toast"""
+        return categorizar(name)
 
     def _extract_franchise_from_filename(self, filename: str) -> str:
         """Extract franchise code from filename"""
@@ -687,7 +653,7 @@ class ToastCombinedParserImpl(BaseParser):
             return 'MIAMI_SUNNY'
         elif 'midtown' in name_lower:
             return 'MIAMI_MIDTOWN'
-        elif 'coconut' in name_lower or 'grove' in name_lower:
+        elif 'coco' in name_lower or 'grove' in name_lower:
             return 'MIAMI_COCONUT'
         return 'MIAMI_UNKNOWN'
 
