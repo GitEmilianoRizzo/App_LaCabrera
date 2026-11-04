@@ -144,3 +144,27 @@ public class GcomCupoTests
         Assert.Equal(new[] { new DateTime(2026, 8, 1), new DateTime(2026, 8, 2), new DateTime(2026, 8, 3) }, dias);
     }
 }
+
+public class GcomCubiertosTests
+{
+    private static GcomItem Item(string nombre, decimal cantidad = 1, string cancelado = "N") =>
+        new() { DescricaoProduto = nombre, Quantidade = cantidad, Cancelado = cancelado };
+
+    [Fact]
+    public void Cubiertos_son_las_experiencias_de_la_venta()
+    {
+        var items = new[]
+        {
+            Item("EXPERIENCIA LA CABRERA R$ 25"), Item("EXPERIENCIA LA CABRERA R$ 25"), Item("EXPERIENCIA LA CABRERA R$ 25", 1, "S"),
+            Item("CHOPP BRAHMA MEDIO"), Item("BIFE DE CHORIZO")
+        };
+
+        Assert.Equal(2, GcomImportes.CalcularCubiertos(items));
+    }
+
+    [Fact]
+    public void Venta_sin_experiencias_cuenta_un_cubierto()
+    {
+        Assert.Equal(1, GcomImportes.CalcularCubiertos(new[] { Item("CHOPP BRAHMA MEDIO") }));
+    }
+}

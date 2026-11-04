@@ -49,8 +49,24 @@ public static class GcomImportes
         decimal ImporteImpuesto,
         decimal ImportePropina,
         decimal ImporteTotalPagado,
+        int Cubiertos,
         IReadOnlyList<LineaCalculada> Lineas,
         IReadOnlyList<PagoCalculado> Pagos);
+
+    /// <summary>
+    /// GCOM no informa personas por venta. En Porto Alegre se carga un ítem "EXPERIENCIA LA CABRERA" (R$ 0,01)
+    /// por comensal: los cubiertos son la cantidad de esos ítems, y 1 si la venta no tiene ninguno
+    /// (regla definida por el cliente el 04/11/2026).
+    /// </summary>
+    public const string ProductoCubierto = "EXPERIENCIA LA CABRERA";
+
+    public static int CalcularCubiertos(IEnumerable<GcomItem> items)
+    {
+        var experiencias = items
+            .Where(i => !EsCancelado(i) && (i.DescricaoProduto ?? "").Trim().StartsWith(ProductoCubierto, StringComparison.OrdinalIgnoreCase))
+            .Sum(i => i.Quantidade ?? 1);
+        return Math.Max(1, (int)Math.Round(experiencias));
+    }
 
     public static TicketCalculado CalcularTicket(GcomVenda venda)
     {
@@ -121,6 +137,7 @@ public static class GcomImportes
             ImporteImpuesto: Math.Round(impuesto, 2),
             ImportePropina: Math.Round(venda.Gorjeta ?? 0, 2),
             ImporteTotalPagado: pagos.Sum(p => p.Importe),
+            Cubiertos: CalcularCubiertos(items),
             Lineas: lineas,
             Pagos: pagos);
     }
