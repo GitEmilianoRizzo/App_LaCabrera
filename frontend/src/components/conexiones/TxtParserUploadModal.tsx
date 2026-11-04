@@ -19,9 +19,18 @@ import {
   X,
   Play,
   Database,
+  FileSpreadsheet,
 } from 'lucide-react'
 import { conexionesApi } from '@/services/api'
 import type { NodoConexion, ParseBatchResult, ParseFileResult, IngestBatchResult } from '@/types/conexiones'
+
+// Resultado del control HTML vs Sales Summary que hace el parser combinado de Toast
+interface ValidacionToast {
+  status: 'VALIDATED' | 'MISMATCH'
+  html_tickets_count: number
+  differences?: { metric: string; html: number; csv: number; difference: number }[]
+  orders_warning?: string
+}
 
 interface TxtParserUploadModalProps {
   open: boolean
@@ -58,6 +67,7 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
   const [ingestResult, setIngestResult] = useState<IngestBatchResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [descargandoConciliacion, setDescargandoConciliacion] = useState(false)
 
   const handleReset = useCallback(() => {
     setState('upload')
@@ -136,6 +146,24 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
       console.error('Parse error:', err)
       setError(err instanceof Error ? err.message : 'Error al procesar archivos')
       setState('upload')
+    }
+  }, [files, nodo.nodo_conexion_id])
+
+  // Par HTML + ZIP de Toast: permite bajar el Excel de conciliación antes de confirmar la carga
+  const toastPair = detectToastCombinedPair(files)
+
+  const handleDescargarConciliacion = useCallback(async () => {
+    const par = detectToastCombinedPair(files)
+    if (!par) return
+    setDescargandoConciliacion(true)
+    setError(null)
+    try {
+      await conexionesApi.descargarConciliacionToast(nodo.nodo_conexion_id, par.htmlFile, par.zipFile)
+    } catch (err) {
+      console.error('Conciliación error:', err)
+      setError('No se pudo armar el Excel de conciliación')
+    } finally {
+      setDescargandoConciliacion(false)
     }
   }, [files, nodo.nodo_conexion_id])
 
@@ -280,6 +308,33 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
         {/* State: Preview */}
         {state === 'preview' && parseResult && (
           <div className="space-y-4">
+            {parseResult.results.map(r => {
+              const validacion = (r.data as { batch_header?: { validation?: ValidacionToast } } | null)?.batch_header?.validation
+              if (!validacion) return null
+              const ok = validacion.status === 'VALIDATED'
+              return (
+                <div
+                  key={r.filename}
+                  className={`p-3 rounded-lg text-sm border ${ok ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}
+                >
+                  <div className="font-medium">
+                    {ok
+                      ? `Cierra contra el Sales Summary: ${validacion.html_tickets_count} órdenes, neto, servicio, impuestos y propinas.`
+                      : 'No cierra contra el Sales Summary. Revisá el Excel de conciliación antes de cargar.'}
+                  </div>
+                  {!ok && (
+                    <ul className="mt-1 list-disc pl-5 text-xs">
+                      {validacion.differences?.map(d => (
+                        <li key={d.metric}>
+                          {d.metric}: HTML {d.html.toLocaleString('es-AR')} vs Toast {d.csv.toLocaleString('es-AR')} (dif. {d.difference.toLocaleString('es-AR')})
+                        </li>
+                      ))}
+                      {validacion.orders_warning && <li>{validacion.orders_warning}</li>}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
             {/* Summary */}
             <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
               <div className="flex-1 text-center">
@@ -411,6 +466,12 @@ export function TxtParserUploadModal({ open, onOpenChange, nodo, onComplete }: T
               <Button variant="outline" onClick={handleReset}>
                 Volver
               </Button>
+              {toastPair && (
+                <Button variant="outline" onClick={handleDescargarConciliacion} disabled={descargandoConciliacion} className="gap-2">
+                  {descargandoConciliacion ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
+                  Excel de conciliación
+                </Button>
+              )}
               <Button
                 onClick={handleIngest}
                 disabled={parseResult?.successful === 0}

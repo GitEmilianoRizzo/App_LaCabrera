@@ -168,5 +168,31 @@ async def parse_toast_combined(
         return ParseFileResult(success=False, filename=filename, error=f"Error: {str(e)}")
 
 
+@app.post("/conciliacion-toast")
+async def conciliacion_toast(
+    html_file: UploadFile = File(..., description="HTML Order Details file"),
+    csv_zip: UploadFile = File(..., description="ZIP del Sales Summary del mismo rango")
+):
+    """Excel de conciliación Order Details vs Sales Summary (no carga nada)."""
+    from fastapi.responses import Response
+    from parsers.toast_combined_parser import ToastCombinedParserImpl
+    from parsers.toast_conciliacion import armar_excel
+
+    filename = html_file.filename or "toast_order_details.html"
+    html_str = (await html_file.read()).decode("utf-8", errors="ignore")
+    zip_content = await csv_zip.read()
+
+    result = ToastCombinedParserImpl().parse(html_str, filename, csv_zip_content=zip_content)
+    if not result.success:
+        return ParseFileResult(success=False, filename=filename, error=result.error)
+
+    nombre = filename.rsplit(".", 1)[0].replace("toast_order_details", "Conciliacion_Toast") + ".xlsx"
+    return Response(
+        content=armar_excel(result.data, zip_content),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{nombre}"'},
+    )
+
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

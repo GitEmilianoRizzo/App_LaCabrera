@@ -29,7 +29,8 @@ def cuenta(items, servicio, pago):
         <tr><td>Service Charge (18.00%)</td><td>Yes</td><td>${sc_neto}</td><td>${sc_imp}</td></tr>
       </tbody></table>
       <table id="order-details-payments-table"><tbody>
-        <tr><td>Credit</td><td></td><td>${monto}</td><td>${propina}</td><td>${gratuity}</td><td>${total}</td></tr>
+        <tr><td>Credit</td><td></td><td>${monto}</td><td>${propina}</td><td>${gratuity}</td><td>${total}</td><td>$0.00</td><td>CAPTURED</td></tr>
+        <tr><td>Credit</td><td></td><td>${monto}</td><td>$5.00</td><td>${gratuity}</td><td>${total}</td><td>$0.00</td><td>DENIED</td></tr>
       </tbody></table>"""
 
 
@@ -76,6 +77,7 @@ def test_lee_todas_las_cuentas_de_la_orden():
     assert [i['product_name'] for i in ticket['items']] == [
         'ENTRAÑA / OUTSIDE SKIRT', 'Papas Fritas / French Fries', 'FILET MIGNON OZ MENU', 'San Pellegrino']
     assert len(ticket['service_charges']) == 2
+    # Los pagos rechazados (DENIED) no cuentan, ni su propina
     assert len(ticket['payment_methods']) == 2
 
 
@@ -114,3 +116,10 @@ def test_categorias():
     assert categorizar('San Pellegrino') == 'BEVERAGE'
     assert categorizar('Catena Classic MB') == 'WINE'
     assert categorizar('Chorizo') == 'STARTER'
+
+
+def test_orden_despues_de_medianoche_es_del_dia_anterior():
+    html = HTML.replace('10/10/26, 8:15 PM', '10/11/26, 12:18 AM')
+    data = ToastCombinedParser().parse(html, 'toast_order_details_Sunny.html', zip_sales_summary()).data
+    assert data['tickets'][0]['business_date'] == '2026-10-10'
+    assert data['tickets'][0]['opened_at'] == '2026-10-11T00:18:00'

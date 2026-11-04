@@ -6,12 +6,16 @@ import re
 import csv
 import zipfile
 import io
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional, Tuple
 from decimal import Decimal, ROUND_HALF_UP
 from bs4 import BeautifulSoup
 from .base_parser import BaseParser, ParseResult
 from .toast_categorias import categorizar
+
+
+# Hora en que cierra el día de negocio en Toast (las órdenes abiertas antes cuentan para el día anterior)
+HORA_CORTE_DIA_NEGOCIO = 5
 
 
 class ToastCombinedParserImpl(BaseParser):
@@ -257,7 +261,9 @@ class ToastCombinedParserImpl(BaseParser):
                 dt = datetime.strptime(raw_date, '%m/%d/%y, %I:%M %p')
                 if dt.year < 100:
                     dt = dt.replace(year=dt.year + 2000)
-                business_date = dt.strftime('%Y-%m-%d')
+                # Día de negocio de Toast: una orden abierta después de medianoche (antes del corte)
+                # pertenece al día anterior, igual que en el Sales Summary.
+                business_date = (dt - timedelta(days=1) if dt.hour < HORA_CORTE_DIA_NEGOCIO else dt).strftime('%Y-%m-%d')
                 opened_at_iso = dt.isoformat()
             except:
                 pass
@@ -458,6 +464,11 @@ class ToastCombinedParserImpl(BaseParser):
                     return 0.0
 
             payment_text = cells[0].get_text().strip()
+            # Columnas: Payment, Date, Amount, Tip, Gratuity, Total, Refund, Status.
+            # Solo cuentan los pagos cobrados: Toast no suma los rechazados (DENIED), anulados (VOIDED) ni cancelados.
+            status = cells[7].get_text().strip().upper() if len(cells) > 7 else 'CAPTURED'
+            if status in ('DENIED', 'VOIDED', 'CANCELLED'):
+                continue
 
             payments.append({
                 "payment_id": f"P{idx + 1}",
@@ -465,7 +476,9 @@ class ToastCombinedParserImpl(BaseParser):
                 "amount": parse_money(cells[2].get_text()),
                 "tip_amount": parse_money(cells[3].get_text()),
                 "gratuity_amount": parse_money(cells[4].get_text()),
-                "total_amount": parse_money(cells[5].get_text())
+                "total_amount": parse_money(cells[5].get_text()),
+                "refund_amount": parse_money(cells[6].get_text()) if len(cells) > 6 else 0.0,
+                "status": status
             })
 
         return payments
@@ -640,7 +653,7 @@ class ToastCombinedParserImpl(BaseParser):
             return 'MIAMI_SUNNY'
         elif 'midtown' in name_lower:
             return 'MIAMI_MIDTOWN'
-        elif 'coconut' in name_lower or 'grove' in name_lower:
+        elif 'coco' in name_lower or 'grove' in name_lower:
             return 'MIAMI_COCONUT'
         return 'MIAMI_UNKNOWN'
 

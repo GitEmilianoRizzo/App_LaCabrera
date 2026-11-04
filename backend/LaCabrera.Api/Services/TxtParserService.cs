@@ -14,6 +14,7 @@ public interface ITxtParserService
     Task<ParserDto?> GetParserByCodigoAsync(string codigo);
     Task<ParseBatchResultDto> ParseFilesAsync(string parserCode, List<IFormFile> files);
     Task<ParseFileResultDto> ParseToastCombinedAsync(IFormFile htmlFile, IFormFile? csvZipFile);
+    Task<(byte[]? Excel, string? NombreArchivo, string? Error)> ConciliacionToastAsync(IFormFile htmlFile, IFormFile csvZipFile);
 }
 
 public class TxtParserService : ITxtParserService
@@ -273,5 +274,34 @@ public class TxtParserService : ITxtParserService
             Filename = htmlFile.FileName,
             Error = "Failed to parse response from combined parser service"
         };
+    }
+
+    /// <summary>
+    /// Excel de conciliación Order Details (HTML) vs Sales Summary (ZIP) de Toast, armado por el parser.
+    /// No carga nada: sirve para revisar la carga antes de confirmarla.
+    /// </summary>
+    public async Task<(byte[]? Excel, string? NombreArchivo, string? Error)> ConciliacionToastAsync(IFormFile htmlFile, IFormFile csvZipFile)
+    {
+        using var content = new MultipartFormDataContent();
+
+        var html = new StreamContent(htmlFile.OpenReadStream());
+        html.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+        content.Add(html, "html_file", htmlFile.FileName);
+
+        var zip = new StreamContent(csvZipFile.OpenReadStream());
+        zip.Headers.ContentType = new MediaTypeHeaderValue("application/zip");
+        content.Add(zip, "csv_zip", csvZipFile.FileName);
+
+        var response = await _httpClient.PostAsync($"{_parserServiceUrl}/conciliacion-toast", content);
+        var tipo = response.Content.Headers.ContentType?.MediaType;
+        if (!response.IsSuccessStatusCode || tipo == "application/json")
+        {
+            var cuerpo = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Conciliación Toast: el parser devolvió {StatusCode}: {Body}", response.StatusCode, cuerpo);
+            return (null, null, $"No se pudo armar la conciliación ({(int)response.StatusCode})");
+        }
+
+        var nombre = response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? "Conciliacion_Toast.xlsx";
+        return (await response.Content.ReadAsByteArrayAsync(), nombre, null);
     }
 }
