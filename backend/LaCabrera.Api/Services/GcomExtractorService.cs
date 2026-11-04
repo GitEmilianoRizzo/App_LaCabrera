@@ -366,7 +366,7 @@ public class GcomExtractorService : IGcomExtractorService
             BatchId = batchId, FranquiciaId = franquiciaId, t.ExternalTicketId, t.NumeroTicket, t.Estado, t.TipoDocumentoFiscal,
             t.FechaNegocio, t.FechaApertura, t.FechaCierre, t.PeriodoComida, CodigoMoneda = moneda,
             t.ImporteBruto, t.ImporteDescuento, t.ImporteNeto, t.ImporteImpuesto, t.ImportePropina, t.ImporteTotalPagado,
-            TieneDescuento = t.ImporteDescuento > 0, t.EstaAnulado
+            TieneDescuento = t.ImporteDescuento > 0, t.EstaAnulado, t.Cubiertos
         };
 
         long ticketId;
@@ -383,6 +383,7 @@ public class GcomExtractorService : IGcomExtractorService
                     ImportesIncluyenImpuesto = 0, CalidadImpuesto = 'POS',
                     ImportePropina = @ImportePropina, ImporteTotalPagado = @ImporteTotalPagado,
                     TieneDescuento = @TieneDescuento, EstaAnulado = @EstaAnulado,
+                    CantidadCubiertos = @Cubiertos, TieneDatosCubiertos = 1,
                     FechaModificacion = SYSDATETIME(), UsuarioModificacion = 'GCOM'
                 WHERE VentaTicketId = @TicketId;
                 DELETE FROM fact.VentaTicketDetalle WHERE VentaTicketId = @TicketId;
@@ -392,7 +393,7 @@ public class GcomExtractorService : IGcomExtractorService
                     datos.BatchId, datos.NumeroTicket, datos.Estado, datos.TipoDocumentoFiscal, datos.FechaNegocio, datos.FechaApertura,
                     datos.FechaCierre, datos.PeriodoComida, datos.CodigoMoneda, datos.ImporteBruto, datos.ImporteDescuento, datos.ImporteNeto,
                     datos.ImporteImpuesto, datos.ImportePropina, datos.ImporteTotalPagado, datos.TieneDescuento, datos.EstaAnulado,
-                    TicketId = ticketId
+                    datos.Cubiertos, TicketId = ticketId
                 }, tx);
         }
         else
@@ -412,11 +413,11 @@ public class GcomExtractorService : IGcomExtractorService
                 VALUES (
                     @BatchId, @FranquiciaId, @ExternalTicketId, @NumeroTicket, @Estado, @TipoDocumentoFiscal,
                     @FechaNegocio, @FechaApertura, @FechaCierre, @PeriodoComida,
-                    NULL, NULL, NULL, 0, @CodigoMoneda,
+                    NULL, NULL, NULL, @Cubiertos, @CodigoMoneda,
                     @ImporteBruto, @ImporteDescuento, @ImporteNeto, @ImporteImpuesto,
                     @ImporteNeto, 0, 'POS',
                     0, @ImportePropina, @ImporteTotalPagado,
-                    @TieneDescuento, @EstaAnulado, 0, 0, 0,
+                    @TieneDescuento, @EstaAnulado, 1, 0, 0,
                     'GCOM'
                 )", datos, tx);
         }
