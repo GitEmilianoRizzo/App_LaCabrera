@@ -143,6 +143,49 @@ public class GcomCupoTests
 
         Assert.Equal(new[] { new DateTime(2026, 8, 1), new DateTime(2026, 8, 2), new DateTime(2026, 8, 3) }, dias);
     }
+
+    // Caso real: el local cargó en GCOM las ventas del 28/10, 1/11 y 2/11 después de que preguntamos.
+    // En la corrida del 04/11 (ayer = 03/11, que también vino vacío) los cuatro se vuelven a pedir.
+    [Fact]
+    public void Dias_recientes_que_vinieron_vacios_se_vuelven_a_pedir_con_ayer_primero()
+    {
+        var ayer = new DateTime(2026, 11, 3);
+        var vacios = new HashSet<DateTime> { new(2026, 10, 28), new(2026, 11, 1), new(2026, 11, 2), new(2026, 11, 3) };
+        var conVentas = new HashSet<DateTime>();
+        for (var d = new DateTime(2026, 10, 3); d <= ayer; d = d.AddDays(1))
+            if (!vacios.Contains(d)) conVentas.Add(d);
+
+        var dias = GcomCupo.DiasPendientes(new DateTime(2026, 10, 3), ayer, conVentas, priorizarUltimo: true, vacios, GcomCupo.InicioReintentoVacios(ayer));
+
+        Assert.Equal(new[] { new DateTime(2026, 11, 3), new DateTime(2026, 10, 28), new DateTime(2026, 11, 1), new DateTime(2026, 11, 2) }, dias);
+    }
+
+    [Fact]
+    public void Dias_viejos_vacios_no_se_reintentan()
+    {
+        // 1 al 8/08: antes de la apertura, GCOM responde vacío; no se vuelven a pedir cada día
+        var ayer = new DateTime(2026, 11, 4);
+        var vacios = new HashSet<DateTime>();
+        for (var d = new DateTime(2026, 8, 1); d <= new DateTime(2026, 8, 8); d = d.AddDays(1)) vacios.Add(d);
+
+        var dias = GcomCupo.DiasPendientes(new DateTime(2026, 8, 1), new DateTime(2026, 8, 10), new HashSet<DateTime> { new(2026, 8, 9) },
+            priorizarUltimo: true, vacios, GcomCupo.InicioReintentoVacios(ayer));
+
+        Assert.Equal(new[] { new DateTime(2026, 8, 10) }, dias);
+    }
+
+    [Fact]
+    public void La_ventana_de_reintento_son_los_ultimos_siete_dias_contando_ayer()
+    {
+        var ayer = new DateTime(2026, 11, 4);
+        Assert.Equal(new DateTime(2026, 10, 29), GcomCupo.InicioReintentoVacios(ayer));
+
+        var vacios = new HashSet<DateTime> { new(2026, 10, 28), new(2026, 10, 29) };
+        var dias = GcomCupo.DiasPendientes(new DateTime(2026, 10, 28), new DateTime(2026, 10, 29), new HashSet<DateTime>(),
+            priorizarUltimo: false, vacios, GcomCupo.InicioReintentoVacios(ayer));
+
+        Assert.Equal(new[] { new DateTime(2026, 10, 29) }, dias);
+    }
 }
 
 public class GcomCubiertosTests
