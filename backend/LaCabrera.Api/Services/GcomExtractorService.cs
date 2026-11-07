@@ -92,9 +92,10 @@ public class GcomExtractorService : IGcomExtractorService
         {
             var ctx = await CargarContextoAsync(nodoConexionId);
             if (ctx.Error != null) return Fallo(ctx.Error);
-            var conCrudo = await GetDiasConCrudoAsync(ctx.Nodo!.FranquiciaId, fechaDesde.Date, fechaHasta.Date);
-            var pendientes = GcomCupo.DiasPendientes(fechaDesde.Date, fechaHasta.Date, conCrudo, priorizarUltimo: false);
-            return await PedirDiasAsync(ctx, pendientes, modo, conCrudo.Count);
+            var (conVentas, vacios) = await GetDiasRecibidosAsync(ctx.Nodo!.FranquiciaId, fechaDesde.Date, fechaHasta.Date);
+            var reintentoDesde = GcomCupo.InicioReintentoVacios(GcomCupo.HoyLocal(_utcNow(), ctx.Zona).AddDays(-1));
+            var pendientes = GcomCupo.DiasPendientes(fechaDesde.Date, fechaHasta.Date, conVentas, priorizarUltimo: false, vacios, reintentoDesde);
+            return await PedirDiasAsync(ctx, pendientes, modo, conVentas.Count);
         }
         finally { _candado.Release(); }
     }
@@ -110,11 +111,11 @@ public class GcomExtractorService : IGcomExtractorService
                 return Fallo("Falta sync.fecha_inicio en la configuración del nodo");
 
             var ayer = GcomCupo.HoyLocal(_utcNow(), ctx.Zona).AddDays(-1);
-            var conCrudo = await GetDiasConCrudoAsync(ctx.Nodo!.FranquiciaId, inicio.Date, ayer);
-            var pendientes = GcomCupo.DiasPendientes(inicio.Date, ayer, conCrudo, priorizarUltimo: true);
+            var (conVentas, vacios) = await GetDiasRecibidosAsync(ctx.Nodo!.FranquiciaId, inicio.Date, ayer);
+            var pendientes = GcomCupo.DiasPendientes(inicio.Date, ayer, conVentas, priorizarUltimo: true, vacios, GcomCupo.InicioReintentoVacios(ayer));
             if (pendientes.Count == 0)
                 return new EjecucionResultDto { Success = true, Message = "Datos al día: no hay días pendientes de pedir a GCOM" };
-            return await PedirDiasAsync(ctx, pendientes, modo, conCrudo.Count);
+            return await PedirDiasAsync(ctx, pendientes, modo, conVentas.Count);
         }
         finally { _candado.Release(); }
     }
@@ -182,9 +183,9 @@ public class GcomExtractorService : IGcomExtractorService
         if (ctx.Config.Sync.FechaInicio is { } inicio)
         {
             var ayer = hoy.AddDays(-1);
-            var conCrudo = await GetDiasConCrudoAsync(ctx.Nodo!.FranquiciaId, inicio.Date, ayer);
-            dto.DiasPendientes = GcomCupo.DiasPendientes(inicio.Date, ayer, conCrudo, priorizarUltimo: true).Count;
-            dto.DiasConDatos = conCrudo.Count;
+            var (conVentas, vacios) = await GetDiasRecibidosAsync(ctx.Nodo!.FranquiciaId, inicio.Date, ayer);
+            dto.DiasPendientes = GcomCupo.DiasPendientes(inicio.Date, ayer, conVentas, priorizarUltimo: true, vacios, GcomCupo.InicioReintentoVacios(ayer)).Count;
+            dto.DiasConDatos = conVentas.Count;
         }
         return dto;
     }
@@ -506,17 +507,27 @@ public class GcomExtractorService : IGcomExtractorService
             new { NodoId = nodoConexionId, Marca = MarcaRequestApi, Desde = desdeUtc, Hasta = hastaUtc });
     }
 
-    private async Task<HashSet<DateTime>> GetDiasConCrudoAsync(int franquiciaId, DateTime desde, DateTime hasta)
+    /// <summary>
+    /// Días con crudo guardado: con ventas, o solo con respuestas vacías ("vendas": []).
+    /// Un día con alguna respuesta con ventas cuenta como recibido aunque tenga otras vacías.
+    /// </summary>
+    private async Task<(HashSet<DateTime> ConVentas, HashSet<DateTime> Vacios)> GetDiasRecibidosAsync(int franquiciaId, DateTime desde, DateTime hasta)
     {
         using var connection = _connectionFactory.CreateConnection();
-        var dias = await connection.QueryAsync<DateTime>(@"
-            SELECT DISTINCT CAST(b.FechaNegocio AS DATE)
+        var filas = await connection.QueryAsync<(DateTime Dia, int ConVentas)>(@"
+            SELECT CAST(b.FechaNegocio AS DATE) AS Dia,
+                   -- ISJSON primero: la tabla de crudos también guarda archivos de otros conectores que no son JSON
+                   MAX(CASE WHEN ISJSON(r.JsonContent) = 1
+                            THEN CASE WHEN JSON_QUERY(r.JsonContent, '$.vendas[0]') IS NOT NULL THEN 1 ELSE 0 END
+                            ELSE 1 END) AS ConVentas
             FROM stg.IngestionBatch b
             JOIN stg.IngestionBatchRawJson r ON r.IngestionBatchId = b.IngestionBatchId
             WHERE b.FranquiciaId = @FranquiciaId AND b.SchemaVersion = @Schema
-              AND b.FechaNegocio >= @Desde AND b.FechaNegocio <= @Hasta",
+              AND b.FechaNegocio >= @Desde AND b.FechaNegocio <= @Hasta
+            GROUP BY CAST(b.FechaNegocio AS DATE)",
             new { FranquiciaId = franquiciaId, Schema = SchemaVersion, Desde = desde, Hasta = hasta });
-        return dias.Select(d => d.Date).ToHashSet();
+        return (filas.Where(f => f.ConVentas == 1).Select(f => f.Dia.Date).ToHashSet(),
+                filas.Where(f => f.ConVentas == 0).Select(f => f.Dia.Date).ToHashSet());
     }
 
     /// <summary>Último crudo guardado del día (de la API o importado).</summary>
@@ -673,14 +684,29 @@ public static class GcomCupo
     }
 
     /// <summary>
-    /// Días sin crudo guardado entre desde y hasta. Con priorizarUltimo, el último día (ayer) va primero
-    /// para que el día a día no espere a que termine la carga histórica.
+    /// Días hacia atrás (contando ayer) en los que una respuesta vacía de GCOM se vuelve a pedir: el local puede
+    /// cargar las ventas en GCOM después de que preguntamos (pasó el 28/10, 1/11 y 2/11 de 2026).
     /// </summary>
-    public static List<DateTime> DiasPendientes(DateTime desde, DateTime hasta, IReadOnlySet<DateTime> conCrudo, bool priorizarUltimo)
+    public const int DiasReintentoVacios = 7;
+
+    /// <summary>Primer día cuya respuesta vacía todavía se reintenta.</summary>
+    public static DateTime InicioReintentoVacios(DateTime ayer) => ayer.Date.AddDays(-(DiasReintentoVacios - 1));
+
+    /// <summary>
+    /// Días a pedir entre desde y hasta: los que no tienen crudo con ventas, salvo los que respondieron vacío
+    /// antes de reintentarVaciosDesde (días viejos sin ventas, p. ej. antes de la apertura, no se piden de nuevo).
+    /// Con priorizarUltimo, el último día (ayer) va primero para que el día a día no espere a la carga histórica.
+    /// </summary>
+    public static List<DateTime> DiasPendientes(DateTime desde, DateTime hasta, IReadOnlySet<DateTime> conVentas, bool priorizarUltimo,
+        IReadOnlySet<DateTime>? vacios = null, DateTime? reintentarVaciosDesde = null)
     {
         var dias = new List<DateTime>();
         for (var d = desde.Date; d <= hasta.Date; d = d.AddDays(1))
-            if (!conCrudo.Contains(d)) dias.Add(d);
+        {
+            if (conVentas.Contains(d)) continue;
+            var vacioViejo = vacios != null && vacios.Contains(d) && (reintentarVaciosDesde is not { } limite || d < limite.Date);
+            if (!vacioViejo) dias.Add(d);
+        }
 
         if (priorizarUltimo && dias.Count > 1 && dias[^1] == hasta.Date)
         {
