@@ -254,9 +254,15 @@ export function Alertas() {
     sin: filtradas.filter(f => !conectadas.has(f.franquicia_id)).length,
   }
 
-  // Opciones de cada filtro: solo las combinaciones posibles con los otros filtros elegidos
+  // Opciones de cada filtro: solo las combinaciones posibles con los otros filtros elegidos.
+  // Salen de la lista de franquicias (no de la grilla), así están disponibles antes de "Cargar Datos".
+  const todasLasFranquicias = useMemo(() => (dashboardData ?? []).map(f => ({
+    franquicia_id: f.franquicia_id,
+    franquicia_nombre: f.franquicia_nombre,
+  })), [dashboardData])
+
   const opciones = (excluir: 'pais' | 'franquicia' | 'grupo' | 'contacto') => {
-    const base = dailyData.filter(f => {
+    const base = todasLasFranquicias.filter(f => {
       const d = datosDe(f.franquicia_id)
       return (excluir === 'pais' || !filtroPais || d.pais === filtroPais)
         && (excluir === 'franquicia' || !filtroFranquicia || String(f.franquicia_id) === filtroFranquicia)
