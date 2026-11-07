@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { AlertTriangle, Calendar, DollarSign, Ticket, Users } from 'lucide-react'
+import { AlertTriangle, Calendar, DollarSign, Ticket, Users, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { useHomeDashboard, useEstadoIntegracion } from '@/hooks/useDashboard'
@@ -25,6 +25,21 @@ interface FranquiciaDayData {
   days: Record<string, DayData>
 }
 
+const PAISES: Record<string, string> = {
+  spain: 'España', espana: 'España', 'españa': 'España',
+  brazil: 'Brasil', brasil: 'Brasil',
+  usa: 'EE.UU.', 'united states': 'EE.UU.', 'estados unidos': 'EE.UU.',
+  mexico: 'México', 'méxico': 'México',
+  peru: 'Perú', 'perú': 'Perú',
+  philippines: 'Filipinas', filipinas: 'Filipinas',
+}
+
+function nombrePais(pais: string | null): string {
+  const p = pais?.trim()
+  if (!p) return 'Sin país'
+  return PAISES[p.toLowerCase()] ?? p
+}
+
 export function Alertas() {
   // Filtros de fecha - por defecto mes actual
   const getDefaultDates = () => {
@@ -46,6 +61,10 @@ export function Alertas() {
   const [dailyData, setDailyData] = useState<FranquiciaDayData[]>([])
   const [loading, setLoading] = useState(false)
   const [filtroConexion, setFiltroConexion] = useState<FiltroConexion>('todas')
+  const [filtroPais, setFiltroPais] = useState('')
+  const [filtroFranquicia, setFiltroFranquicia] = useState('')
+  const [filtroGrupo, setFiltroGrupo] = useState('')
+  const [filtroContacto, setFiltroContacto] = useState('')
 
   // Conexión activa = tiene un conector configurado (mismo criterio que Estado de Integración)
   const { data: estadoIntegracion } = useEstadoIntegracion()
@@ -54,6 +73,36 @@ export function Alertas() {
       .filter(e => (e.estado_integracion ?? 'PENDING').toUpperCase() !== 'PENDING')
       .map(e => e.franquicia_id)
   ), [estadoIntegracion])
+
+  // País, grupo y contacto de cada franquicia (mismos datos que Estado de Integración).
+  // El país se normaliza: en la base hay variantes ("Spain"/"Espana", "Brazil"/"Brasil").
+  const infoFranquicia = useMemo(() => new Map(
+    (estadoIntegracion ?? []).map(e => [e.franquicia_id, {
+      pais: nombrePais(e.pais),
+      grupo: e.grupo_economico_nombre?.trim() || 'Sin grupo',
+      contacto: e.contacto_nombre?.trim() || e.contacto_email?.trim() || 'Sin contacto',
+    }])
+  ), [estadoIntegracion])
+
+  const datosDe = (franquiciaId: number) =>
+    infoFranquicia.get(franquiciaId) ?? { pais: 'Sin país', grupo: 'Sin grupo', contacto: 'Sin contacto' }
+
+  // Filtros de país, franquicia, grupo y contacto (vacío = todos)
+  const pasaFiltros = (f: FranquiciaDayData) => {
+    const d = datosDe(f.franquicia_id)
+    return (!filtroPais || d.pais === filtroPais)
+      && (!filtroFranquicia || String(f.franquicia_id) === filtroFranquicia)
+      && (!filtroGrupo || d.grupo === filtroGrupo)
+      && (!filtroContacto || d.contacto === filtroContacto)
+  }
+
+  const hayFiltros = !!(filtroPais || filtroFranquicia || filtroGrupo || filtroContacto)
+  const limpiarFiltros = () => {
+    setFiltroPais('')
+    setFiltroFranquicia('')
+    setFiltroGrupo('')
+    setFiltroContacto('')
+  }
 
   // Get franchises from dashboard
   const { data: dashboardData, loading: loadingFranquicias } = useHomeDashboard({
@@ -186,19 +235,50 @@ export function Alertas() {
     const total = (f: FranquiciaDayData) => daysInMonth.reduce((sum, day) => sum + getCellValue(f.days[fechaDelDia(day)]), 0)
 
     return dailyData
+      .filter(pasaFiltros)
       .filter(f => filtroConexion === 'todas'
         || (filtroConexion === 'activas' ? conectadas.has(f.franquicia_id) : !conectadas.has(f.franquicia_id)))
       .map(f => ({ franquicia: f, dias: diasConDatos(f), total: total(f) }))
       .sort((a, b) => b.dias - a.dias || b.total - a.total
         || a.franquicia.franquicia_nombre.localeCompare(b.franquicia.franquicia_nombre))
       .map(x => x.franquicia)
-  }, [dailyData, filtroConexion, conectadas, daysInMonth, selectedYear, selectedMonth, metric])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyData, filtroConexion, conectadas, daysInMonth, selectedYear, selectedMonth, metric,
+      infoFranquicia, filtroPais, filtroFranquicia, filtroGrupo, filtroContacto])
 
+  // Los contadores de conexión respetan los demás filtros
+  const filtradas = dailyData.filter(pasaFiltros)
   const cantidadPorFiltro = {
-    todas: dailyData.length,
-    activas: dailyData.filter(f => conectadas.has(f.franquicia_id)).length,
-    sin: dailyData.filter(f => !conectadas.has(f.franquicia_id)).length,
+    todas: filtradas.length,
+    activas: filtradas.filter(f => conectadas.has(f.franquicia_id)).length,
+    sin: filtradas.filter(f => !conectadas.has(f.franquicia_id)).length,
   }
+
+  // Opciones de cada filtro: solo las combinaciones posibles con los otros filtros elegidos
+  const opciones = (excluir: 'pais' | 'franquicia' | 'grupo' | 'contacto') => {
+    const base = dailyData.filter(f => {
+      const d = datosDe(f.franquicia_id)
+      return (excluir === 'pais' || !filtroPais || d.pais === filtroPais)
+        && (excluir === 'franquicia' || !filtroFranquicia || String(f.franquicia_id) === filtroFranquicia)
+        && (excluir === 'grupo' || !filtroGrupo || d.grupo === filtroGrupo)
+        && (excluir === 'contacto' || !filtroContacto || d.contacto === filtroContacto)
+    })
+    if (excluir === 'franquicia') {
+      return base
+        .map(f => ({ valor: String(f.franquicia_id), etiqueta: f.franquicia_nombre }))
+        .sort((a, b) => a.etiqueta.localeCompare(b.etiqueta))
+    }
+    return [...new Set(base.map(f => datosDe(f.franquicia_id)[excluir]))]
+      .sort((a, b) => a.localeCompare(b))
+      .map(v => ({ valor: v, etiqueta: v }))
+  }
+
+  const filtros = [
+    { etiqueta: 'País', valor: filtroPais, set: setFiltroPais, opciones: opciones('pais') },
+    { etiqueta: 'Franquicia', valor: filtroFranquicia, set: setFiltroFranquicia, opciones: opciones('franquicia') },
+    { etiqueta: 'Grupo', valor: filtroGrupo, set: setFiltroGrupo, opciones: opciones('grupo') },
+    { etiqueta: 'Contacto', valor: filtroContacto, set: setFiltroContacto, opciones: opciones('contacto') },
+  ]
 
   // Días con ventas que no se pueden pasar a USD por falta de cotización
   const diasSinCotizacion = useMemo(() => filas.reduce((n, f) =>
@@ -264,6 +344,35 @@ export function Alertas() {
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Filtros por país, franquicia, grupo y contacto */}
+      <div className="flex flex-wrap items-center gap-3">
+        {filtros.map(f => (
+          <label key={f.etiqueta} className="flex items-center gap-2 text-sm">
+            <span className="font-medium">{f.etiqueta}:</span>
+            <select
+              value={f.valor}
+              onChange={e => f.set(e.target.value)}
+              className={`px-2 py-1.5 text-sm border rounded-md bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white max-w-[220px] ${
+                f.valor ? 'border-cabrera-burgundy ring-1 ring-cabrera-burgundy/40' : ''
+              }`}
+            >
+              <option value="">Todos</option>
+              {f.opciones.map(o => (
+                <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
+              ))}
+            </select>
+          </label>
+        ))}
+        {hayFiltros && (
+          <button
+            onClick={limpiarFiltros}
+            className="flex items-center gap-1 text-sm text-cabrera-burgundy hover:underline"
+          >
+            <X className="h-3 w-3" /> Limpiar filtros
+          </button>
+        )}
       </div>
 
       {/* Controls */}
