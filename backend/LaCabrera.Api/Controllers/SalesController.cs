@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using LaCabrera.Api.Models.DTOs;
 using LaCabrera.Api.Services;
@@ -70,12 +71,17 @@ public class SalesController : ControllerBase
             }));
         }
 
-        // Get raw JSON for storage
-        var rawJson = JsonSerializer.Serialize(request, new JsonSerializerOptions
+        // JSON crudo: el body tal cual llegó (Program.cs habilita el buffering para esta ruta), así no se
+        // pierden campos que el DTO no conoce. Si no se puede leer, se re-serializa el DTO como antes.
+        var rawJson = await LeerBodyOriginalAsync();
+        if (string.IsNullOrWhiteSpace(rawJson))
         {
-            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
-            WriteIndented = false
-        });
+            rawJson = JsonSerializer.Serialize(request, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+                WriteIndented = false
+            });
+        }
 
         var result = await _ingestionService.ProcessBatchAsync(request, apiKeyInfo.FranquiciaId, rawJson);
 
@@ -90,6 +96,16 @@ public class SalesController : ControllerBase
         }
 
         return Ok(result);
+    }
+
+    private async Task<string?> LeerBodyOriginalAsync()
+    {
+        if (!Request.Body.CanSeek) return null;
+        Request.Body.Position = 0;
+        using var reader = new StreamReader(Request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, bufferSize: 81920, leaveOpen: true);
+        var body = await reader.ReadToEndAsync();
+        Request.Body.Position = 0;
+        return body;
     }
 
     /// <summary>

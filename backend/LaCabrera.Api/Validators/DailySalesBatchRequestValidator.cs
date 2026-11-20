@@ -1,5 +1,6 @@
 using FluentValidation;
 using LaCabrera.Api.Models.DTOs;
+using LaCabrera.Api.Services;
 
 namespace LaCabrera.Api.Validators;
 
@@ -8,7 +9,10 @@ public class DailySalesBatchRequestValidator : AbstractValidator<DailySalesBatch
     private static readonly string[] ValidStatuses = { "OPEN", "CLOSED", "CANCELLED", "VOIDED", "REFUNDED" };
     private static readonly string[] ValidCategories = { "STARTER", "MAIN_COURSE", "SIDE_DISH", "DESSERT", "COFFEE", "BEVERAGE", "WINE", "COCKTAIL", "OTHER" };
     private static readonly string[] ValidUploadTypes = { "FULL_DAY", "INCREMENTAL", "CORRECTION" };
-    private static readonly string[] SupportedSchemaVersions = { "1.0", "1.1", "1.2" };
+    private static readonly string[] SupportedSchemaVersions = { "1.0", "1.1", "1.2", DailySalesBatchV13.SchemaVersion };
+
+    private static readonly TicketValidator TicketLegacy = new();
+    private static readonly TicketValidatorV13 TicketV13 = new();
 
     public DailySalesBatchRequestValidator()
     {
@@ -24,8 +28,28 @@ public class DailySalesBatchRequestValidator : AbstractValidator<DailySalesBatch
         RuleFor(x => x.Tickets)
             .NotNull().WithMessage("tickets es requerido");
 
+        // v1.0-v1.2 siguen con las reglas de siempre; v1.3 (T-380) suma devoluciones negativas y más controles
         RuleForEach(x => x.Tickets)
-            .SetValidator(new TicketValidator());
+            .SetValidator((root, _) => DailySalesBatchV13.Es(root) ? TicketV13 : TicketLegacy);
+
+        When(DailySalesBatchV13.Es, () =>
+        {
+            RuleFor(x => x.BatchHeader.AmountsIncludeTax)
+                .NotNull().WithErrorCode("MISSING_AMOUNTS_INCLUDE_TAX")
+                .WithMessage("batch_header.amounts_include_tax is required in schema 1.3");
+
+            RuleForEach(x => x.Tickets)
+                .Must((root, ticket) => ticket.BusinessDate == root.BatchHeader.BusinessDate)
+                .WithErrorCode("BUSINESS_DATE_MISMATCH")
+                .WithMessage((root, ticket) =>
+                    $"ticket {ticket.TicketId}: business_date {ticket.BusinessDate} differs from batch_header.business_date {root.BatchHeader.BusinessDate} (one business date per batch)");
+
+            RuleFor(x => x.Tickets)
+                .Must(tickets => tickets.Select(t => t.TicketId).Distinct(StringComparer.Ordinal).Count() == tickets.Count)
+                .WithErrorCode("DUPLICATE_TICKET_ID")
+                .WithMessage((root, tickets) =>
+                    "ticket_id repeated in the batch: " + string.Join(", ", tickets.GroupBy(t => t.TicketId).Where(g => g.Count() > 1).Select(g => g.Key)));
+        });
     }
 }
 
@@ -103,7 +127,12 @@ public class TicketValidator : AbstractValidator<TicketDto>
 {
     private static readonly string[] ValidStatuses = { "OPEN", "CLOSED", "CANCELLED", "VOIDED", "REFUNDED" };
 
-    public TicketValidator()
+    public TicketValidator() : this(validarSignoLegacy: true)
+    {
+    }
+
+    /// <param name="validarSignoLegacy">v1.0-v1.2: gross y discount del ticket >= 0. v1.3 lo reemplaza por sus reglas de signo.</param>
+    protected TicketValidator(bool validarSignoLegacy)
     {
         RuleFor(x => x.TicketId)
             .NotEmpty().WithMessage("ticket.ticket_id es requerido")
@@ -132,14 +161,19 @@ public class TicketValidator : AbstractValidator<TicketDto>
             .Matches(@"^[A-Z]{3}$").WithMessage("ticket.currency debe ser un codigo ISO 4217");
 
         RuleFor(x => x.Amounts)
-            .NotNull().WithMessage("ticket.amounts es requerido")
-            .SetValidator(new TicketAmountsValidator());
+            .NotNull().WithMessage("ticket.amounts es requerido");
+
+        if (validarSignoLegacy)
+        {
+            RuleFor(x => x.Amounts)
+                .SetValidator(new TicketAmountsValidator());
+        }
 
         RuleFor(x => x.Items)
             .NotNull().WithMessage("ticket.items es requerido");
 
         RuleForEach(x => x.Items)
-            .SetValidator(new TicketItemValidator());
+            .SetValidator(validarSignoLegacy ? new TicketItemValidator() : new TicketItemValidatorV13());
     }
 
     private bool BeValidDate(string date)
@@ -174,7 +208,12 @@ public class TicketItemValidator : AbstractValidator<TicketItemDto>
 {
     private static readonly string[] ValidCategories = { "STARTER", "MAIN_COURSE", "SIDE_DISH", "DESSERT", "COFFEE", "BEVERAGE", "WINE", "COCKTAIL", "OTHER" };
 
-    public TicketItemValidator()
+    public TicketItemValidator() : this(validarCantidad: true)
+    {
+    }
+
+    /// <param name="validarCantidad">v1.0-v1.2: quantity >= 0. En v1.3 el signo depende del estado del ticket (TicketValidatorV13).</param>
+    protected TicketItemValidator(bool validarCantidad)
     {
         RuleFor(x => x.LineId)
             .NotEmpty().WithMessage("item.line_id es requerido");
@@ -189,10 +228,81 @@ public class TicketItemValidator : AbstractValidator<TicketItemDto>
             .NotEmpty().WithMessage("item.product_category es requerido")
             .Must(x => ValidCategories.Contains(x)).WithMessage("item.product_category debe ser STARTER, MAIN_COURSE, SIDE_DISH, DESSERT, COFFEE, BEVERAGE, WINE, COCKTAIL u OTHER");
 
-        RuleFor(x => x.Quantity)
-            .GreaterThanOrEqualTo(0).WithMessage("item.quantity debe ser >= 0");
+        if (validarCantidad)
+        {
+            RuleFor(x => x.Quantity)
+                .GreaterThanOrEqualTo(0).WithMessage("item.quantity debe ser >= 0");
+        }
 
         RuleFor(x => x.UnitPrice)
             .GreaterThanOrEqualTo(0).WithMessage("item.unit_price debe ser >= 0");
+    }
+}
+
+/// <summary>v1.3: igual que TicketItemValidator sin la regla de signo de quantity.</summary>
+public class TicketItemValidatorV13 : TicketItemValidator
+{
+    public TicketItemValidatorV13() : base(validarCantidad: false)
+    {
+    }
+}
+
+/// <summary>
+/// v1.3 (T-380): mismas reglas que v1.0-v1.2 más el signo de los importes.
+/// Solo un ticket REFUNDED puede traer importes y cantidades negativas (y tiene que referenciar la venta original);
+/// cualquier otro estado los trae en positivo. unit_price siempre es positivo.
+/// </summary>
+public class TicketValidatorV13 : TicketValidator
+{
+    private const string CodigoNegativo = "NEGATIVE_AMOUNT_NOT_REFUNDED";
+    private const string CodigoDevolucion = "INVALID_REFUND";
+
+    public TicketValidatorV13() : base(validarSignoLegacy: false)
+    {
+        When(t => t.Amounts != null && t.Status == "REFUNDED", () =>
+        {
+            RuleFor(x => x.OriginalTicketId)
+                .NotEmpty().WithErrorCode(CodigoDevolucion)
+                .WithMessage(t => $"ticket {t.TicketId}: original_ticket_id is required when status is REFUNDED");
+
+            RuleFor(x => x.Amounts.GrossAmount).LessThanOrEqualTo(0).WithErrorCode(CodigoDevolucion)
+                .WithMessage(t => $"ticket {t.TicketId}: REFUNDED amounts.gross_amount must be <= 0");
+            RuleFor(x => x.Amounts.DiscountAmount).LessThanOrEqualTo(0).WithErrorCode(CodigoDevolucion)
+                .WithMessage(t => $"ticket {t.TicketId}: REFUNDED amounts.discount_amount must be <= 0");
+            RuleFor(x => x.Amounts.NetAmount).LessThanOrEqualTo(0).WithErrorCode(CodigoDevolucion)
+                .WithMessage(t => $"ticket {t.TicketId}: REFUNDED amounts.net_amount must be <= 0");
+
+            RuleForEach(x => x.Items).ChildRules(item =>
+            {
+                item.RuleFor(i => i.Quantity).LessThanOrEqualTo(0).WithErrorCode(CodigoDevolucion)
+                    .WithMessage(i => $"line {i.LineId}: REFUNDED quantity must be <= 0");
+                item.RuleFor(i => i.GrossAmount).LessThanOrEqualTo(0).WithErrorCode(CodigoDevolucion)
+                    .WithMessage(i => $"line {i.LineId}: REFUNDED gross_amount must be <= 0");
+                item.RuleFor(i => i.NetAmount).LessThanOrEqualTo(0).WithErrorCode(CodigoDevolucion)
+                    .WithMessage(i => $"line {i.LineId}: REFUNDED net_amount must be <= 0");
+            });
+        });
+
+        When(t => t.Amounts != null && t.Status != "REFUNDED", () =>
+        {
+            RuleFor(x => x.Amounts.GrossAmount).GreaterThanOrEqualTo(0).WithErrorCode(CodigoNegativo)
+                .WithMessage(t => $"ticket {t.TicketId}: negative amounts are only allowed when status is REFUNDED (amounts.gross_amount)");
+            RuleFor(x => x.Amounts.DiscountAmount).GreaterThanOrEqualTo(0).WithErrorCode(CodigoNegativo)
+                .WithMessage(t => $"ticket {t.TicketId}: negative amounts are only allowed when status is REFUNDED (amounts.discount_amount)");
+            RuleFor(x => x.Amounts.NetAmount).GreaterThanOrEqualTo(0).WithErrorCode(CodigoNegativo)
+                .WithMessage(t => $"ticket {t.TicketId}: negative amounts are only allowed when status is REFUNDED (amounts.net_amount)");
+
+            RuleForEach(x => x.Items).ChildRules(item =>
+            {
+                item.RuleFor(i => i.Quantity).GreaterThanOrEqualTo(0).WithErrorCode(CodigoNegativo)
+                    .WithMessage(i => $"line {i.LineId}: negative quantity is only allowed when status is REFUNDED");
+                item.RuleFor(i => i.GrossAmount).GreaterThanOrEqualTo(0).WithErrorCode(CodigoNegativo)
+                    .WithMessage(i => $"line {i.LineId}: negative gross_amount is only allowed when status is REFUNDED");
+                item.RuleFor(i => i.DiscountAmount).GreaterThanOrEqualTo(0).WithErrorCode(CodigoNegativo)
+                    .WithMessage(i => $"line {i.LineId}: negative discount_amount is only allowed when status is REFUNDED");
+                item.RuleFor(i => i.NetAmount).GreaterThanOrEqualTo(0).WithErrorCode(CodigoNegativo)
+                    .WithMessage(i => $"line {i.LineId}: negative net_amount is only allowed when status is REFUNDED");
+            });
+        });
     }
 }

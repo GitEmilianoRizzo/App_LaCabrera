@@ -105,6 +105,40 @@ public class BatchSummary
 
     [JsonPropertyName("net_amount")]
     public decimal NetAmount { get; set; }
+
+    // v1.3: resultado por ticket. En v1.0-v1.2 quedan en null y no se serializan.
+
+    /// <summary>Tickets nuevos cargados.</summary>
+    [JsonPropertyName("tickets_accepted")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? TicketsAccepted { get; set; }
+
+    /// <summary>Tickets que ya existían y se reemplazaron (upsert o FULL_DAY).</summary>
+    [JsonPropertyName("tickets_updated")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? TicketsUpdated { get; set; }
+
+    /// <summary>Tickets que no se cargaron; el motivo va en rejected_tickets.</summary>
+    [JsonPropertyName("tickets_rejected")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? TicketsRejected { get; set; }
+
+    /// <summary>FULL_DAY: tickets que estaban cargados para ese día y no vinieron en el batch (se quitaron).</summary>
+    [JsonPropertyName("tickets_removed")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? TicketsRemoved { get; set; }
+
+    [JsonPropertyName("updated_ticket_ids")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? UpdatedTicketIds { get; set; }
+
+    [JsonPropertyName("removed_ticket_ids")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<string>? RemovedTicketIds { get; set; }
+
+    [JsonPropertyName("rejected_tickets")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public List<BatchError>? RejectedTickets { get; set; }
 }
 
 public class BatchWarning
@@ -135,6 +169,11 @@ public class BatchError
 
     [JsonPropertyName("received_value")]
     public string? ReceivedValue { get; set; }
+
+    /// <summary>v1.3: ticket rechazado (en rejected_tickets).</summary>
+    [JsonPropertyName("ticket_id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? TicketId { get; set; }
 }
 
 public class BatchStatusResponse

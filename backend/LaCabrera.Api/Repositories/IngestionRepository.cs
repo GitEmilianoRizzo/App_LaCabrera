@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using Microsoft.Data.SqlClient;
 using LaCabrera.Api.Configuration;
 using LaCabrera.Api.Models.DTOs;
 
@@ -12,6 +13,113 @@ public class IngestionRepository : IIngestionRepository
     public IngestionRepository(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
+    }
+
+    // ---- Transacción de la ingesta v1.3 (T-380) ----
+    // Mientras hay una transacción abierta, las operaciones de tickets (inserción, dimensiones, pagos,
+    // descuentos, errores, reemplazos) usan su conexión. El registro y el estado del batch van siempre
+    // por conexión propia, para que queden aunque se haga rollback.
+
+    private SqlConnection? _txConnection;
+    private SqlTransaction? _tx;
+
+    private sealed class Lease : IDisposable
+    {
+        private readonly bool _propia;
+        public IDbConnection Connection { get; }
+        public IDbTransaction? Transaction { get; }
+        public Lease(IDbConnection connection, IDbTransaction? transaction, bool propia)
+        {
+            Connection = connection; Transaction = transaction; _propia = propia;
+        }
+        public void Dispose()
+        {
+            if (_propia) Connection.Dispose();
+        }
+    }
+
+    private Lease Arrendar() => _tx != null
+        ? new Lease(_txConnection!, _tx, propia: false)
+        : new Lease(_connectionFactory.CreateConnection(), null, propia: true);
+
+    public async Task<IIngestionTransaction> BeginTransactionAsync()
+    {
+        if (_tx != null) throw new InvalidOperationException("Ya hay una transacción de ingesta abierta");
+        var connection = (SqlConnection)_connectionFactory.CreateConnection();
+        await connection.OpenAsync();
+        _txConnection = connection;
+        _tx = (SqlTransaction)await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted);
+        return new IngestionTransaction(this);
+    }
+
+    private sealed class IngestionTransaction : IIngestionTransaction
+    {
+        private readonly IngestionRepository _repo;
+        private bool _terminada;
+        public IngestionTransaction(IngestionRepository repo) => _repo = repo;
+
+        public async Task CommitAsync()
+        {
+            await _repo._tx!.CommitAsync();
+            _terminada = true;
+        }
+
+        public Task SavepointAsync(string nombre)
+        {
+            _repo._tx!.Save(nombre);
+            return Task.CompletedTask;
+        }
+
+        public Task RollbackToSavepointAsync(string nombre)
+        {
+            _repo._tx!.Rollback(nombre);
+            return Task.CompletedTask;
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            try
+            {
+                if (!_terminada && _repo._tx?.Connection != null)
+                    await _repo._tx.RollbackAsync();
+            }
+            finally
+            {
+                _repo._tx?.Dispose();
+                if (_repo._txConnection != null) await _repo._txConnection.DisposeAsync();
+                _repo._tx = null;
+                _repo._txConnection = null;
+            }
+        }
+    }
+
+    public async Task<List<string>> GetTicketIdsDelDiaAsync(int franquiciaId, DateTime fechaNegocio)
+    {
+        using var lease = Arrendar();
+        var ids = await lease.Connection.QueryAsync<string>(
+            "SELECT ExternalTicketId FROM fact.VentaTicket WHERE FranquiciaId = @FranquiciaId AND FechaNegocio = @FechaNegocio",
+            new { FranquiciaId = franquiciaId, FechaNegocio = fechaNegocio.Date },
+            transaction: lease.Transaction);
+        return ids.ToList();
+    }
+
+    public async Task<List<string>> RespaldarYEliminarTicketsAsync(
+        long ingestionBatchId, int franquiciaId, DateTime fechaNegocio, string? externalTicketId, string motivo)
+    {
+        using var lease = Arrendar();
+        var ids = await lease.Connection.QueryAsync<string>(
+            "fact.sp_RespaldarYEliminarTickets",
+            new
+            {
+                IngestionBatchId = ingestionBatchId,
+                FranquiciaId = franquiciaId,
+                FechaNegocio = fechaNegocio.Date,
+                ExternalTicketId = externalTicketId,
+                Motivo = motivo
+            },
+            transaction: lease.Transaction,
+            commandType: CommandType.StoredProcedure);
+        return ids.ToList();
     }
 
     public async Task<(long IngestionBatchId, bool IsDuplicate)> RegisterBatchAsync(
@@ -82,7 +190,8 @@ public class IngestionRepository : IIngestionRepository
         string errorMessage, string? field = null, string? receivedValue = null,
         string? ticketId = null, string? lineId = null)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         await connection.ExecuteAsync(
             "stg.sp_RegistrarErrorIngesta",
@@ -97,7 +206,7 @@ public class IngestionRepository : IIngestionRepository
                 TicketId = ticketId,
                 LineaId = lineId
             },
-            commandType: CommandType.StoredProcedure);
+            transaction: lease.Transaction, commandType: CommandType.StoredProcedure);
     }
 
     public async Task<(long VentaTicketId, bool IsDuplicate)> InsertTicketAsync(
@@ -107,9 +216,12 @@ public class IngestionRepository : IIngestionRepository
         bool? importesIncluyenImpuesto = null,
         string? calidadImpuesto = null,
         // v1.2: Shift
-        string? mealPeriodOrigen = null)
+        string? mealPeriodOrigen = null,
+        // v1.3 (T-380)
+        bool? estaAnuladoForzado = null)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         var parameters = new DynamicParameters();
         parameters.Add("IngestionBatchId", ingestionBatchId);
@@ -157,10 +269,21 @@ public class IngestionRepository : IIngestionRepository
         parameters.Add("TurnoCierre", string.IsNullOrEmpty(ticket.Shift?.ClosedAt) ? null : (DateTime?)DateTimeOffset.Parse(ticket.Shift.ClosedAt).UtcDateTime);
         parameters.Add("MealPeriodOrigen", mealPeriodOrigen);
 
+        // v1.3: solo se mandan si vienen (los SP de antes de la 035 no los conocen)
+        if (estaAnuladoForzado.HasValue) parameters.Add("EstaAnuladoForzado", estaAnuladoForzado.Value);
+        if (!string.IsNullOrEmpty(ticket.OriginalTicketId)) parameters.Add("ExternalTicketIdOriginal", ticket.OriginalTicketId);
+        if (ticket.TaxBreakdown != null)
+        {
+            parameters.Add("ImporteGravado", ticket.TaxBreakdown.VatableSales);
+            parameters.Add("ImporteIvaGravado", ticket.TaxBreakdown.VatAmount);
+            parameters.Add("ImporteExento", ticket.TaxBreakdown.VatExemptSales);
+            parameters.Add("ImporteTasaCero", ticket.TaxBreakdown.ZeroRatedSales);
+        }
+
         parameters.Add("VentaTicketId", dbType: DbType.Int64, direction: ParameterDirection.Output);
         parameters.Add("EsDuplicado", dbType: DbType.Boolean, direction: ParameterDirection.Output);
 
-        await connection.ExecuteAsync("fact.sp_InsertarTicketIdempotente", parameters, commandType: CommandType.StoredProcedure);
+        await connection.ExecuteAsync("fact.sp_InsertarTicketIdempotente", parameters, transaction: lease.Transaction, commandType: CommandType.StoredProcedure);
 
         return (parameters.Get<long>("VentaTicketId"), parameters.Get<bool>("EsDuplicado"));
     }
@@ -174,7 +297,8 @@ public class IngestionRepository : IIngestionRepository
         bool? importesIncluyenImpuesto = null,
         string? calidadImpuesto = null)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         var parameters = new DynamicParameters();
         parameters.Add("VentaTicketId", ventaTicketId);
@@ -209,14 +333,15 @@ public class IngestionRepository : IIngestionRepository
         parameters.Add("VentaTicketDetalleId", dbType: DbType.Int64, direction: ParameterDirection.Output);
         parameters.Add("EsDuplicado", dbType: DbType.Boolean, direction: ParameterDirection.Output);
 
-        await connection.ExecuteAsync("fact.sp_InsertarTicketDetalle", parameters, commandType: CommandType.StoredProcedure);
+        await connection.ExecuteAsync("fact.sp_InsertarTicketDetalle", parameters, transaction: lease.Transaction, commandType: CommandType.StoredProcedure);
 
         return (parameters.Get<long>("VentaTicketDetalleId"), parameters.Get<bool>("EsDuplicado"));
     }
 
     public async Task InsertTicketDiscountAsync(long ventaTicketId, long ingestionBatchId, int franquiciaId, DiscountDto discount)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         await connection.ExecuteAsync(@"
             INSERT INTO fact.VentaTicketDescuento
@@ -233,18 +358,23 @@ public class IngestionRepository : IIngestionRepository
                 TipoDescuento = discount.DiscountType,
                 ValorDescuento = discount.DiscountValue,
                 ImporteDescuento = discount.DiscountAmount
-            });
+            },
+            transaction: lease.Transaction);
     }
 
     public async Task InsertTicketPaymentMethodAsync(long ventaTicketId, long ingestionBatchId, int franquiciaId, PaymentMethodDto payment, int? medioPagoId)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
+
+        // v1.3: la columna Referencia existe desde la 035; sin referencia el INSERT queda como antes
+        var conReferencia = !string.IsNullOrEmpty(payment.Reference);
 
         await connection.ExecuteAsync(@"
             INSERT INTO fact.VentaTicketMedioPago
-            (VentaTicketId, IngestionBatchId, FranquiciaId, MedioPagoId, CodigoMedioPago, MarcaTarjeta, Importe)
+            (VentaTicketId, IngestionBatchId, FranquiciaId, MedioPagoId, CodigoMedioPago, MarcaTarjeta, Importe" + (conReferencia ? ", Referencia" : "") + @")
             VALUES
-            (@VentaTicketId, @IngestionBatchId, @FranquiciaId, @MedioPagoId, @CodigoMedioPago, @MarcaTarjeta, @Importe)",
+            (@VentaTicketId, @IngestionBatchId, @FranquiciaId, @MedioPagoId, @CodigoMedioPago, @MarcaTarjeta, @Importe" + (conReferencia ? ", @Referencia" : "") + ")",
             new
             {
                 VentaTicketId = ventaTicketId,
@@ -253,8 +383,10 @@ public class IngestionRepository : IIngestionRepository
                 MedioPagoId = medioPagoId,
                 CodigoMedioPago = payment.PaymentMethod,
                 MarcaTarjeta = payment.PaymentBrand,
-                Importe = payment.Amount
-            });
+                Importe = payment.Amount,
+                Referencia = payment.Reference
+            },
+            transaction: lease.Transaction);
     }
 
     public async Task<BatchStatusResponse?> GetBatchStatusAsync(string batchId, int? franquiciaId = null)
@@ -269,7 +401,8 @@ public class IngestionRepository : IIngestionRepository
 
     public async Task<int?> GetOrCreateMozoAsync(int franquiciaId, string externalId, string nombre)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         var parameters = new DynamicParameters();
         parameters.Add("FranquiciaId", franquiciaId);
@@ -277,14 +410,15 @@ public class IngestionRepository : IIngestionRepository
         parameters.Add("Nombre", nombre);
         parameters.Add("MozoId", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-        await connection.ExecuteAsync("dim.sp_InsertarActualizarMozo", parameters, commandType: CommandType.StoredProcedure);
+        await connection.ExecuteAsync("dim.sp_InsertarActualizarMozo", parameters, transaction: lease.Transaction, commandType: CommandType.StoredProcedure);
 
         return parameters.Get<int?>("MozoId");
     }
 
     public async Task<int?> GetOrCreateMesaAsync(int franquiciaId, string numeroMesa, string? area)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         var parameters = new DynamicParameters();
         parameters.Add("FranquiciaId", franquiciaId);
@@ -292,7 +426,7 @@ public class IngestionRepository : IIngestionRepository
         parameters.Add("Area", area);
         parameters.Add("MesaId", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-        await connection.ExecuteAsync("dim.sp_InsertarActualizarMesa", parameters, commandType: CommandType.StoredProcedure);
+        await connection.ExecuteAsync("dim.sp_InsertarActualizarMesa", parameters, transaction: lease.Transaction, commandType: CommandType.StoredProcedure);
 
         return parameters.Get<int?>("MesaId");
     }
@@ -301,7 +435,8 @@ public class IngestionRepository : IIngestionRepository
         int franquiciaId, string externalId, string codigo, string nombre,
         string? categoria, string? familia, string? subfamilia)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         var parameters = new DynamicParameters();
         parameters.Add("FranquiciaId", franquiciaId);
@@ -314,26 +449,28 @@ public class IngestionRepository : IIngestionRepository
         parameters.Add("ProductoId", dbType: DbType.Int32, direction: ParameterDirection.Output);
         parameters.Add("TipoPlatoId", dbType: DbType.Int32, direction: ParameterDirection.Output);
 
-        await connection.ExecuteAsync("dim.sp_InsertarActualizarProducto", parameters, commandType: CommandType.StoredProcedure);
+        await connection.ExecuteAsync("dim.sp_InsertarActualizarProducto", parameters, transaction: lease.Transaction, commandType: CommandType.StoredProcedure);
 
         return (parameters.Get<int?>("ProductoId"), parameters.Get<int?>("TipoPlatoId"));
     }
 
     public async Task<int?> GetMedioPagoIdAsync(string codigo)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         return await connection.QueryFirstOrDefaultAsync<int?>(
             "SELECT MedioPagoId FROM dim.MedioPago WHERE Codigo = @Codigo AND Activo = 1",
-            new { Codigo = codigo });
+            new { Codigo = codigo }, transaction: lease.Transaction);
     }
 
     public async Task<int?> GetMonedaIdAsync(string codigoIso)
     {
-        using var connection = _connectionFactory.CreateConnection();
+        using var lease = Arrendar();
+        var connection = lease.Connection;
 
         return await connection.QueryFirstOrDefaultAsync<int?>(
             "SELECT MonedaId FROM dim.Moneda WHERE CodigoISO = @CodigoISO AND Activo = 1",
-            new { CodigoISO = codigoIso });
+            new { CodigoISO = codigoIso }, transaction: lease.Transaction);
     }
 }

@@ -214,6 +214,17 @@ app.UseSwaggerUI(options =>
 
 app.UseCors("AllowFrontend");
 
+// daily-batch guarda el body original como JSON crudo (T-380): se habilita el buffering para poder releerlo
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsPost(context.Request.Method) &&
+        context.Request.Path.StartsWithSegments("/api/v1/sales/daily-batch"))
+    {
+        context.Request.EnableBuffering();
+    }
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 

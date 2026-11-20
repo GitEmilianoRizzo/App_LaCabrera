@@ -193,6 +193,36 @@ public class TicketDto
 
     [JsonPropertyName("items")]
     public List<TicketItemDto> Items { get; set; } = new();
+
+    /// <summary>
+    /// v1.3: ticket_id de la venta original. Obligatorio en los REFUNDED.
+    /// </summary>
+    [JsonPropertyName("original_ticket_id")]
+    public string? OriginalTicketId { get; set; }
+
+    /// <summary>
+    /// v1.3: desglose fiscal del ticket (BIR Filipinas: gravado, IVA, exento, tasa cero).
+    /// </summary>
+    [JsonPropertyName("tax_breakdown")]
+    public TaxBreakdown? TaxBreakdown { get; set; }
+}
+
+/// <summary>
+/// v1.3: desglose fiscal por ticket.
+/// </summary>
+public class TaxBreakdown
+{
+    [JsonPropertyName("vatable_sales")]
+    public decimal? VatableSales { get; set; }
+
+    [JsonPropertyName("vat_amount")]
+    public decimal? VatAmount { get; set; }
+
+    [JsonPropertyName("vat_exempt_sales")]
+    public decimal? VatExemptSales { get; set; }
+
+    [JsonPropertyName("zero_rated_sales")]
+    public decimal? ZeroRatedSales { get; set; }
 }
 
 public class FiscalDocument
@@ -299,6 +329,12 @@ public class PaymentMethodDto
 
     [JsonPropertyName("amount")]
     public decimal Amount { get; set; }
+
+    /// <summary>
+    /// v1.3: número de aprobación o referencia del pago (opcional).
+    /// </summary>
+    [JsonPropertyName("reference")]
+    public string? Reference { get; set; }
 }
 
 public class TicketItemDto

@@ -37,6 +37,15 @@ public interface IIngestionRepository
         string? ticketId = null,
         string? lineId = null);
 
+    /// <summary>v1.3: abre una transacción; mientras dure, las operaciones de tickets la usan.</summary>
+    Task<IIngestionTransaction> BeginTransactionAsync();
+
+    /// <summary>v1.3: ticket_id cargados para una franquicia y fecha de negocio.</summary>
+    Task<List<string>> GetTicketIdsDelDiaAsync(int franquiciaId, DateTime fechaNegocio);
+
+    /// <summary>v1.3: respalda en bak.VentaTicketReemplazado y borra el día (externalTicketId null) o un ticket. Devuelve los ticket_id quitados.</summary>
+    Task<List<string>> RespaldarYEliminarTicketsAsync(long ingestionBatchId, int franquiciaId, DateTime fechaNegocio, string? externalTicketId, string motivo);
+
     Task<(long VentaTicketId, bool IsDuplicate)> InsertTicketAsync(
         long ingestionBatchId,
         int franquiciaId,
@@ -49,7 +58,9 @@ public interface IIngestionRepository
         bool? importesIncluyenImpuesto = null,
         string? calidadImpuesto = null,
         // v1.2: Shift
-        string? mealPeriodOrigen = null);
+        string? mealPeriodOrigen = null,
+        // v1.3: EstaAnulado explícito (REFUNDED = 0); null = regla histórica del SP
+        bool? estaAnuladoForzado = null);
 
     Task<(long VentaTicketDetalleId, bool IsDuplicate)> InsertTicketDetailAsync(
         long ventaTicketId,
@@ -86,4 +97,11 @@ public interface IIngestionRepository
         string? categoria, string? familia, string? subfamilia);
     Task<int?> GetMedioPagoIdAsync(string codigo);
     Task<int?> GetMonedaIdAsync(string codigoIso);
+}
+
+public interface IIngestionTransaction : IAsyncDisposable
+{
+    Task CommitAsync();
+    Task SavepointAsync(string nombre);
+    Task RollbackToSavepointAsync(string nombre);
 }
