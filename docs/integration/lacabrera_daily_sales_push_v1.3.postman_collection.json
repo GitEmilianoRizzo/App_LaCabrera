@@ -1,0 +1,940 @@
+{
+  "info": {
+    "name": "La Cabrera - Daily Sales Push v1.3 (TEST)",
+    "_postman_id": "8f0c6a3e-3d7b-4e51-9a39-1c0d6c2b7a13",
+    "description": "Test collection for POST /api/v1/sales/daily-batch, schema 1.3 (see lacabrera_daily_sales_batch_v1.3_spec.md).\n\nSet the variables base_url, api_key_shangrila and api_key_ayala with the values received through the secure channel. Run the folders in order: 0 Health, 1 Scenarios (1.1 to 1.7), 2 Errors, 3 Status. Each request generates a new batch_id.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "apikey",
+    "apikey": [
+      {
+        "key": "key",
+        "value": "X-API-KEY"
+      },
+      {
+        "key": "value",
+        "value": "{{api_key_shangrila}}"
+      },
+      {
+        "key": "in",
+        "value": "header"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "<TEST_BASE_URL>"
+    },
+    {
+      "key": "api_key_shangrila",
+      "value": "<TEST_API_KEY_MANILA_SHANGRILA>"
+    },
+    {
+      "key": "api_key_ayala",
+      "value": "<TEST_API_KEY_MANILA_AYALA>"
+    },
+    {
+      "key": "franchise_code",
+      "value": "MANILA_SHANGRILA"
+    },
+    {
+      "key": "business_date",
+      "value": "2026-11-17"
+    },
+    {
+      "key": "batch_id",
+      "value": ""
+    },
+    {
+      "key": "last_batch_id",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0 Health",
+      "item": [
+        {
+          "name": "0.1 Health",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "noauth"
+            },
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1 Scenarios",
+      "item": [
+        {
+          "name": "1.1 Normal sale (POS01-000123)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('status ACCEPTED', () => pm.expect(r.status).to.eql('ACCEPTED'));",
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('last_batch_id', pm.collectionVariables.get('batch_id')); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"INCREMENTAL\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 2,\n      \"gross_sales_amount\": 1920.0,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": 1920.0,\n      \"tax_amount\": 205.71,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 2,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 1920.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "Cash sale, 2 lines, VAT 12% included."
+          }
+        },
+        {
+          "name": "1.2 Split payment, VISA + GCash (POS01-000124)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('status ACCEPTED', () => pm.expect(r.status).to.eql('ACCEPTED'));",
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('last_batch_id', pm.collectionVariables.get('batch_id')); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"INCREMENTAL\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 3,\n      \"gross_sales_amount\": 4594.0,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": 4594.0,\n      \"tax_amount\": 492.21,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 4,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000124\",\n      \"ticket_number\": \"SI-00004568\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004568\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T22:40:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:35:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 4,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 4594.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 4594.0,\n        \"net_amount_excl_tax\": 4101.79,\n        \"tax_amount\": 492.21,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 4594.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": 3000.0,\n          \"reference\": \"APPROVAL-PLACEHOLDER-1\"\n        },\n        {\n          \"payment_method\": \"QR\",\n          \"payment_brand\": \"GCASH\",\n          \"amount\": 1594.0,\n          \"reference\": \"GCASH-REF-PLACEHOLDER\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"ENT-020\",\n          \"product_name\": \"Provoleta\",\n          \"product_category\": \"STARTER\",\n          \"quantity\": 1.0,\n          \"unit_price\": 450.0,\n          \"gross_amount\": 450.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 450.0,\n          \"net_amount_excl_tax\": 401.79,\n          \"tax_amount\": 48.21,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-105\",\n          \"product_name\": \"Ojo de Bife 350g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1904.0,\n          \"gross_amount\": 1904.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1904.0,\n          \"net_amount_excl_tax\": 1700.0,\n          \"tax_amount\": 204.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": 2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 2240.0,\n          \"net_amount_excl_tax\": 2000.0,\n          \"tax_amount\": 240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "Closed at 00:35 of the next day: business_date stays 2026-11-17."
+          }
+        },
+        {
+          "name": "1.3 Senior Citizen, VAT-exempt line (POS02-000057)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('status ACCEPTED', () => pm.expect(r.status).to.eql('ACCEPTED'));",
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('last_batch_id', pm.collectionVariables.get('batch_id')); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"INCREMENTAL\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 2,\n      \"gross_sales_amount\": 3180.0,\n      \"discount_amount\": 300.0,\n      \"net_sales_amount\": 2880.0,\n      \"tax_amount\": 180.0,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 2,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS02-000057\",\n      \"ticket_number\": \"SI-00004569\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004569\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T20:10:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:30:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"08\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 3180.0,\n        \"discount_amount\": 300.0,\n        \"net_amount\": 2880.0,\n        \"net_amount_excl_tax\": 2700.0,\n        \"tax_amount\": 180.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 2880.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 2880.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g (Senior Citizen)\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1500.0,\n          \"gross_amount\": 1500.0,\n          \"discount_amount\": 300.0,\n          \"net_amount\": 1200.0,\n          \"net_amount_excl_tax\": 1200.0,\n          \"tax_amount\": 0.0,\n          \"tax_rate\": 0.0,\n          \"is_discounted\": true,\n          \"is_voided\": false\n        }\n      ],\n      \"discounts\": [\n        {\n          \"discount_code\": \"SENIOR_CITIZEN\",\n          \"discount_name\": \"Senior Citizen 20% (RA 9994)\",\n          \"discount_type\": \"PERCENTAGE\",\n          \"discount_value\": 20,\n          \"discount_amount\": 300.0\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1500.0,\n        \"vat_amount\": 180.0,\n        \"vat_exempt_sales\": 1200.0,\n        \"zero_rated_sales\": 0\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "Second terminal. Exempt line: unit_price without VAT, 20% discount, tax_rate 0; tax_breakdown."
+          }
+        },
+        {
+          "name": "1.4 Voided ticket (POS01-000125)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('status ACCEPTED', () => pm.expect(r.status).to.eql('ACCEPTED'));",
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('last_batch_id', pm.collectionVariables.get('batch_id')); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"INCREMENTAL\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 1,\n      \"gross_sales_amount\": 420.0,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": 420.0,\n      \"tax_amount\": 45.0,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 1,\n      \"cancelled_ticket_count\": 1\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000125\",\n      \"ticket_number\": \"SI-00004570\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004570\"\n      },\n      \"status\": \"VOIDED\",\n      \"opened_at\": \"2026-11-17T21:00:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:12:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 1,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"02\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 420.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 420.0,\n        \"net_amount_excl_tax\": 375.0,\n        \"tax_amount\": 45.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 0\n      },\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-310\",\n          \"product_name\": \"Malbec copa\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 420.0,\n          \"gross_amount\": 420.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 420.0,\n          \"net_amount_excl_tax\": 375.0,\n          \"tax_amount\": 45.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": true,\n          \"void_reason\": \"Customer left before service\"\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "Original positive amounts, total_paid_amount 0, no payments, lines is_voided."
+          }
+        },
+        {
+          "name": "1.5 Refund of 1.2 (POS01-000131)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('status ACCEPTED', () => pm.expect(r.status).to.eql('ACCEPTED'));",
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('last_batch_id', pm.collectionVariables.get('batch_id')); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"INCREMENTAL\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 1,\n      \"gross_sales_amount\": -2240.0,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": -2240.0,\n      \"tax_amount\": -240.0,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 0,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000131\",\n      \"ticket_number\": \"SI-00004575\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004575\"\n      },\n      \"status\": \"REFUNDED\",\n      \"opened_at\": \"2026-11-18T00:50:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:52:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 0,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -2240.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": -2240.0,\n        \"net_amount_excl_tax\": -2000.0,\n        \"tax_amount\": -240.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": -2240.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": -2240.0,\n          \"reference\": \"REFUND-PLACEHOLDER-1\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": -1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": -2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": -2240.0,\n          \"net_amount_excl_tax\": -2000.0,\n          \"tax_amount\": -240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"original_ticket_id\": \"POS01-000124\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "REFUNDED: own ticket_id, original_ticket_id, negative amounts, quantity and payment; unit_price positive."
+          }
+        },
+        {
+          "name": "1.6 FULL_DAY with the 5 scenarios",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('status ACCEPTED', () => pm.expect(r.status).to.eql('ACCEPTED'));",
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('last_batch_id', pm.collectionVariables.get('batch_id')); }",
+                  "pm.test('tickets_accepted = 0', () => pm.expect(r.summary.tickets_accepted).to.eql(0));",
+                  "pm.test('tickets_updated = 5', () => pm.expect(r.summary.tickets_updated).to.eql(5));",
+                  "pm.test('tickets_removed = 0', () => pm.expect(r.summary.tickets_removed).to.eql(0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"FULL_DAY\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 5,\n      \"item_line_count\": 9,\n      \"gross_sales_amount\": 7874.0,\n      \"discount_amount\": 300.0,\n      \"net_sales_amount\": 7574.0,\n      \"tax_amount\": 682.92,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 9,\n      \"cancelled_ticket_count\": 1\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 1920.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000124\",\n      \"ticket_number\": \"SI-00004568\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004568\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T22:40:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:35:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 4,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 4594.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 4594.0,\n        \"net_amount_excl_tax\": 4101.79,\n        \"tax_amount\": 492.21,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 4594.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": 3000.0,\n          \"reference\": \"APPROVAL-PLACEHOLDER-1\"\n        },\n        {\n          \"payment_method\": \"QR\",\n          \"payment_brand\": \"GCASH\",\n          \"amount\": 1594.0,\n          \"reference\": \"GCASH-REF-PLACEHOLDER\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"ENT-020\",\n          \"product_name\": \"Provoleta\",\n          \"product_category\": \"STARTER\",\n          \"quantity\": 1.0,\n          \"unit_price\": 450.0,\n          \"gross_amount\": 450.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 450.0,\n          \"net_amount_excl_tax\": 401.79,\n          \"tax_amount\": 48.21,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-105\",\n          \"product_name\": \"Ojo de Bife 350g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1904.0,\n          \"gross_amount\": 1904.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1904.0,\n          \"net_amount_excl_tax\": 1700.0,\n          \"tax_amount\": 204.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": 2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 2240.0,\n          \"net_amount_excl_tax\": 2000.0,\n          \"tax_amount\": 240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS02-000057\",\n      \"ticket_number\": \"SI-00004569\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004569\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T20:10:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:30:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"08\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 3180.0,\n        \"discount_amount\": 300.0,\n        \"net_amount\": 2880.0,\n        \"net_amount_excl_tax\": 2700.0,\n        \"tax_amount\": 180.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 2880.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 2880.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g (Senior Citizen)\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1500.0,\n          \"gross_amount\": 1500.0,\n          \"discount_amount\": 300.0,\n          \"net_amount\": 1200.0,\n          \"net_amount_excl_tax\": 1200.0,\n          \"tax_amount\": 0.0,\n          \"tax_rate\": 0.0,\n          \"is_discounted\": true,\n          \"is_voided\": false\n        }\n      ],\n      \"discounts\": [\n        {\n          \"discount_code\": \"SENIOR_CITIZEN\",\n          \"discount_name\": \"Senior Citizen 20% (RA 9994)\",\n          \"discount_type\": \"PERCENTAGE\",\n          \"discount_value\": 20,\n          \"discount_amount\": 300.0\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1500.0,\n        \"vat_amount\": 180.0,\n        \"vat_exempt_sales\": 1200.0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000125\",\n      \"ticket_number\": \"SI-00004570\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004570\"\n      },\n      \"status\": \"VOIDED\",\n      \"opened_at\": \"2026-11-17T21:00:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:12:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 1,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"02\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 420.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 420.0,\n        \"net_amount_excl_tax\": 375.0,\n        \"tax_amount\": 45.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 0\n      },\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-310\",\n          \"product_name\": \"Malbec copa\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 420.0,\n          \"gross_amount\": 420.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 420.0,\n          \"net_amount_excl_tax\": 375.0,\n          \"tax_amount\": 45.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": true,\n          \"void_reason\": \"Customer left before service\"\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS01-000131\",\n      \"ticket_number\": \"SI-00004575\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004575\"\n      },\n      \"status\": \"REFUNDED\",\n      \"opened_at\": \"2026-11-18T00:50:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:52:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 0,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -2240.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": -2240.0,\n        \"net_amount_excl_tax\": -2000.0,\n        \"tax_amount\": -240.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": -2240.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": -2240.0,\n          \"reference\": \"REFUND-PLACEHOLDER-1\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": -1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": -2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": -2240.0,\n          \"net_amount_excl_tax\": -2000.0,\n          \"tax_amount\": -240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"original_ticket_id\": \"POS01-000124\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "Replaces the whole day. Run after 1.1-1.5: the 5 tickets already exist, so they are reported as updated."
+          }
+        },
+        {
+          "name": "1.7 CORRECTION of 1.1 (covers 2 -> 3)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.test('status ACCEPTED', () => pm.expect(r.status).to.eql('ACCEPTED'));",
+                  "if (pm.response.code === 200) { pm.collectionVariables.set('last_batch_id', pm.collectionVariables.get('batch_id')); }",
+                  "pm.test('tickets_accepted = 0', () => pm.expect(r.summary.tickets_accepted).to.eql(0));",
+                  "pm.test('tickets_updated = 1', () => pm.expect(r.summary.tickets_updated).to.eql(1));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"CORRECTION\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 2,\n      \"gross_sales_amount\": 1920.0,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": 1920.0,\n      \"tax_amount\": 205.71,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 3,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 3,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 1920.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "2 Errors",
+      "item": [
+        {
+          "name": "2.1 No X-API-KEY -> 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"FULL_DAY\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 5,\n      \"item_line_count\": 9,\n      \"gross_sales_amount\": 7874.0,\n      \"discount_amount\": 300.0,\n      \"net_sales_amount\": 7574.0,\n      \"tax_amount\": 682.92,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 9,\n      \"cancelled_ticket_count\": 1\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 1920.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000124\",\n      \"ticket_number\": \"SI-00004568\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004568\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T22:40:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:35:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 4,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 4594.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 4594.0,\n        \"net_amount_excl_tax\": 4101.79,\n        \"tax_amount\": 492.21,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 4594.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": 3000.0,\n          \"reference\": \"APPROVAL-PLACEHOLDER-1\"\n        },\n        {\n          \"payment_method\": \"QR\",\n          \"payment_brand\": \"GCASH\",\n          \"amount\": 1594.0,\n          \"reference\": \"GCASH-REF-PLACEHOLDER\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"ENT-020\",\n          \"product_name\": \"Provoleta\",\n          \"product_category\": \"STARTER\",\n          \"quantity\": 1.0,\n          \"unit_price\": 450.0,\n          \"gross_amount\": 450.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 450.0,\n          \"net_amount_excl_tax\": 401.79,\n          \"tax_amount\": 48.21,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-105\",\n          \"product_name\": \"Ojo de Bife 350g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1904.0,\n          \"gross_amount\": 1904.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1904.0,\n          \"net_amount_excl_tax\": 1700.0,\n          \"tax_amount\": 204.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": 2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 2240.0,\n          \"net_amount_excl_tax\": 2000.0,\n          \"tax_amount\": 240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS02-000057\",\n      \"ticket_number\": \"SI-00004569\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004569\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T20:10:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:30:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"08\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 3180.0,\n        \"discount_amount\": 300.0,\n        \"net_amount\": 2880.0,\n        \"net_amount_excl_tax\": 2700.0,\n        \"tax_amount\": 180.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 2880.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 2880.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g (Senior Citizen)\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1500.0,\n          \"gross_amount\": 1500.0,\n          \"discount_amount\": 300.0,\n          \"net_amount\": 1200.0,\n          \"net_amount_excl_tax\": 1200.0,\n          \"tax_amount\": 0.0,\n          \"tax_rate\": 0.0,\n          \"is_discounted\": true,\n          \"is_voided\": false\n        }\n      ],\n      \"discounts\": [\n        {\n          \"discount_code\": \"SENIOR_CITIZEN\",\n          \"discount_name\": \"Senior Citizen 20% (RA 9994)\",\n          \"discount_type\": \"PERCENTAGE\",\n          \"discount_value\": 20,\n          \"discount_amount\": 300.0\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1500.0,\n        \"vat_amount\": 180.0,\n        \"vat_exempt_sales\": 1200.0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000125\",\n      \"ticket_number\": \"SI-00004570\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004570\"\n      },\n      \"status\": \"VOIDED\",\n      \"opened_at\": \"2026-11-17T21:00:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:12:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 1,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"02\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 420.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 420.0,\n        \"net_amount_excl_tax\": 375.0,\n        \"tax_amount\": 45.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 0\n      },\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-310\",\n          \"product_name\": \"Malbec copa\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 420.0,\n          \"gross_amount\": 420.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 420.0,\n          \"net_amount_excl_tax\": 375.0,\n          \"tax_amount\": 45.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": true,\n          \"void_reason\": \"Customer left before service\"\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS01-000131\",\n      \"ticket_number\": \"SI-00004575\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004575\"\n      },\n      \"status\": \"REFUNDED\",\n      \"opened_at\": \"2026-11-18T00:50:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:52:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 0,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -2240.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": -2240.0,\n        \"net_amount_excl_tax\": -2000.0,\n        \"tax_amount\": -240.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": -2240.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": -2240.0,\n          \"reference\": \"REFUND-PLACEHOLDER-1\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": -1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": -2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": -2240.0,\n          \"net_amount_excl_tax\": -2000.0,\n          \"tax_amount\": -240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"original_ticket_id\": \"POS01-000124\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "2.2 Invalid API key -> 401",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"FULL_DAY\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 5,\n      \"item_line_count\": 9,\n      \"gross_sales_amount\": 7874.0,\n      \"discount_amount\": 300.0,\n      \"net_sales_amount\": 7574.0,\n      \"tax_amount\": 682.92,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 9,\n      \"cancelled_ticket_count\": 1\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 1920.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000124\",\n      \"ticket_number\": \"SI-00004568\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004568\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T22:40:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:35:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 4,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 4594.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 4594.0,\n        \"net_amount_excl_tax\": 4101.79,\n        \"tax_amount\": 492.21,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 4594.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": 3000.0,\n          \"reference\": \"APPROVAL-PLACEHOLDER-1\"\n        },\n        {\n          \"payment_method\": \"QR\",\n          \"payment_brand\": \"GCASH\",\n          \"amount\": 1594.0,\n          \"reference\": \"GCASH-REF-PLACEHOLDER\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"ENT-020\",\n          \"product_name\": \"Provoleta\",\n          \"product_category\": \"STARTER\",\n          \"quantity\": 1.0,\n          \"unit_price\": 450.0,\n          \"gross_amount\": 450.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 450.0,\n          \"net_amount_excl_tax\": 401.79,\n          \"tax_amount\": 48.21,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-105\",\n          \"product_name\": \"Ojo de Bife 350g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1904.0,\n          \"gross_amount\": 1904.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1904.0,\n          \"net_amount_excl_tax\": 1700.0,\n          \"tax_amount\": 204.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": 2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 2240.0,\n          \"net_amount_excl_tax\": 2000.0,\n          \"tax_amount\": 240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS02-000057\",\n      \"ticket_number\": \"SI-00004569\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004569\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T20:10:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:30:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"08\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 3180.0,\n        \"discount_amount\": 300.0,\n        \"net_amount\": 2880.0,\n        \"net_amount_excl_tax\": 2700.0,\n        \"tax_amount\": 180.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 2880.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 2880.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g (Senior Citizen)\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1500.0,\n          \"gross_amount\": 1500.0,\n          \"discount_amount\": 300.0,\n          \"net_amount\": 1200.0,\n          \"net_amount_excl_tax\": 1200.0,\n          \"tax_amount\": 0.0,\n          \"tax_rate\": 0.0,\n          \"is_discounted\": true,\n          \"is_voided\": false\n        }\n      ],\n      \"discounts\": [\n        {\n          \"discount_code\": \"SENIOR_CITIZEN\",\n          \"discount_name\": \"Senior Citizen 20% (RA 9994)\",\n          \"discount_type\": \"PERCENTAGE\",\n          \"discount_value\": 20,\n          \"discount_amount\": 300.0\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1500.0,\n        \"vat_amount\": 180.0,\n        \"vat_exempt_sales\": 1200.0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000125\",\n      \"ticket_number\": \"SI-00004570\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004570\"\n      },\n      \"status\": \"VOIDED\",\n      \"opened_at\": \"2026-11-17T21:00:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:12:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 1,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"02\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 420.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 420.0,\n        \"net_amount_excl_tax\": 375.0,\n        \"tax_amount\": 45.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 0\n      },\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-310\",\n          \"product_name\": \"Malbec copa\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 420.0,\n          \"gross_amount\": 420.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 420.0,\n          \"net_amount_excl_tax\": 375.0,\n          \"tax_amount\": 45.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": true,\n          \"void_reason\": \"Customer left before service\"\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS01-000131\",\n      \"ticket_number\": \"SI-00004575\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004575\"\n      },\n      \"status\": \"REFUNDED\",\n      \"opened_at\": \"2026-11-18T00:50:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:52:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 0,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -2240.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": -2240.0,\n        \"net_amount_excl_tax\": -2000.0,\n        \"tax_amount\": -240.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": -2240.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": -2240.0,\n          \"reference\": \"REFUND-PLACEHOLDER-1\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": -1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": -2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": -2240.0,\n          \"net_amount_excl_tax\": -2000.0,\n          \"tax_amount\": -240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"original_ticket_id\": \"POS01-000124\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-KEY"
+                },
+                {
+                  "key": "value",
+                  "value": "INVALID-KEY"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.3 Key of another branch -> 400 FRANCHISE_MISMATCH",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "const r = pm.response.json();",
+                  "pm.test('error FRANCHISE_MISMATCH', () => pm.expect(r.errors[0].code).to.eql('FRANCHISE_MISMATCH'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"FULL_DAY\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 5,\n      \"item_line_count\": 9,\n      \"gross_sales_amount\": 7874.0,\n      \"discount_amount\": 300.0,\n      \"net_sales_amount\": 7574.0,\n      \"tax_amount\": 682.92,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 9,\n      \"cancelled_ticket_count\": 1\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 1920.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000124\",\n      \"ticket_number\": \"SI-00004568\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004568\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T22:40:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:35:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 4,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 4594.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 4594.0,\n        \"net_amount_excl_tax\": 4101.79,\n        \"tax_amount\": 492.21,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 4594.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": 3000.0,\n          \"reference\": \"APPROVAL-PLACEHOLDER-1\"\n        },\n        {\n          \"payment_method\": \"QR\",\n          \"payment_brand\": \"GCASH\",\n          \"amount\": 1594.0,\n          \"reference\": \"GCASH-REF-PLACEHOLDER\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"ENT-020\",\n          \"product_name\": \"Provoleta\",\n          \"product_category\": \"STARTER\",\n          \"quantity\": 1.0,\n          \"unit_price\": 450.0,\n          \"gross_amount\": 450.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 450.0,\n          \"net_amount_excl_tax\": 401.79,\n          \"tax_amount\": 48.21,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-105\",\n          \"product_name\": \"Ojo de Bife 350g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1904.0,\n          \"gross_amount\": 1904.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1904.0,\n          \"net_amount_excl_tax\": 1700.0,\n          \"tax_amount\": 204.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": 2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 2240.0,\n          \"net_amount_excl_tax\": 2000.0,\n          \"tax_amount\": 240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS02-000057\",\n      \"ticket_number\": \"SI-00004569\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004569\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T20:10:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:30:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"08\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 3180.0,\n        \"discount_amount\": 300.0,\n        \"net_amount\": 2880.0,\n        \"net_amount_excl_tax\": 2700.0,\n        \"tax_amount\": 180.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 2880.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 2880.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g (Senior Citizen)\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1500.0,\n          \"gross_amount\": 1500.0,\n          \"discount_amount\": 300.0,\n          \"net_amount\": 1200.0,\n          \"net_amount_excl_tax\": 1200.0,\n          \"tax_amount\": 0.0,\n          \"tax_rate\": 0.0,\n          \"is_discounted\": true,\n          \"is_voided\": false\n        }\n      ],\n      \"discounts\": [\n        {\n          \"discount_code\": \"SENIOR_CITIZEN\",\n          \"discount_name\": \"Senior Citizen 20% (RA 9994)\",\n          \"discount_type\": \"PERCENTAGE\",\n          \"discount_value\": 20,\n          \"discount_amount\": 300.0\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1500.0,\n        \"vat_amount\": 180.0,\n        \"vat_exempt_sales\": 1200.0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000125\",\n      \"ticket_number\": \"SI-00004570\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004570\"\n      },\n      \"status\": \"VOIDED\",\n      \"opened_at\": \"2026-11-17T21:00:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:12:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 1,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"02\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 420.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 420.0,\n        \"net_amount_excl_tax\": 375.0,\n        \"tax_amount\": 45.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 0\n      },\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-310\",\n          \"product_name\": \"Malbec copa\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 420.0,\n          \"gross_amount\": 420.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 420.0,\n          \"net_amount_excl_tax\": 375.0,\n          \"tax_amount\": 45.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": true,\n          \"void_reason\": \"Customer left before service\"\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS01-000131\",\n      \"ticket_number\": \"SI-00004575\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004575\"\n      },\n      \"status\": \"REFUNDED\",\n      \"opened_at\": \"2026-11-18T00:50:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:52:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 0,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -2240.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": -2240.0,\n        \"net_amount_excl_tax\": -2000.0,\n        \"tax_amount\": -240.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": -2240.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": -2240.0,\n          \"reference\": \"REFUND-PLACEHOLDER-1\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": -1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": -2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": -2240.0,\n          \"net_amount_excl_tax\": -2000.0,\n          \"tax_amount\": -240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"original_ticket_id\": \"POS01-000124\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "MANILA_AYALA key with franchise_code MANILA_SHANGRILA.",
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                {
+                  "key": "key",
+                  "value": "X-API-KEY"
+                },
+                {
+                  "key": "value",
+                  "value": "{{api_key_ayala}}"
+                },
+                {
+                  "key": "in",
+                  "value": "header"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "2.4 Same batch_id again -> 409 DUPLICATE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "const r = pm.response.json();",
+                  "pm.test('status DUPLICATE', () => pm.expect(r.status).to.eql('DUPLICATE'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{last_batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"FULL_DAY\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 5,\n      \"item_line_count\": 9,\n      \"gross_sales_amount\": 7874.0,\n      \"discount_amount\": 300.0,\n      \"net_sales_amount\": 7574.0,\n      \"tax_amount\": 682.92,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 9,\n      \"cancelled_ticket_count\": 1\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 1920.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000124\",\n      \"ticket_number\": \"SI-00004568\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004568\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T22:40:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:35:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 4,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 4594.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 4594.0,\n        \"net_amount_excl_tax\": 4101.79,\n        \"tax_amount\": 492.21,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 4594.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": 3000.0,\n          \"reference\": \"APPROVAL-PLACEHOLDER-1\"\n        },\n        {\n          \"payment_method\": \"QR\",\n          \"payment_brand\": \"GCASH\",\n          \"amount\": 1594.0,\n          \"reference\": \"GCASH-REF-PLACEHOLDER\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"ENT-020\",\n          \"product_name\": \"Provoleta\",\n          \"product_category\": \"STARTER\",\n          \"quantity\": 1.0,\n          \"unit_price\": 450.0,\n          \"gross_amount\": 450.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 450.0,\n          \"net_amount_excl_tax\": 401.79,\n          \"tax_amount\": 48.21,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-105\",\n          \"product_name\": \"Ojo de Bife 350g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1904.0,\n          \"gross_amount\": 1904.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1904.0,\n          \"net_amount_excl_tax\": 1700.0,\n          \"tax_amount\": 204.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"3\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": 2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 2240.0,\n          \"net_amount_excl_tax\": 2000.0,\n          \"tax_amount\": 240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS02-000057\",\n      \"ticket_number\": \"SI-00004569\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004569\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T20:10:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:30:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"08\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 3180.0,\n        \"discount_amount\": 300.0,\n        \"net_amount\": 2880.0,\n        \"net_amount_excl_tax\": 2700.0,\n        \"tax_amount\": 180.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 2880.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 2880.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g (Senior Citizen)\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1500.0,\n          \"gross_amount\": 1500.0,\n          \"discount_amount\": 300.0,\n          \"net_amount\": 1200.0,\n          \"net_amount_excl_tax\": 1200.0,\n          \"tax_amount\": 0.0,\n          \"tax_rate\": 0.0,\n          \"is_discounted\": true,\n          \"is_voided\": false\n        }\n      ],\n      \"discounts\": [\n        {\n          \"discount_code\": \"SENIOR_CITIZEN\",\n          \"discount_name\": \"Senior Citizen 20% (RA 9994)\",\n          \"discount_type\": \"PERCENTAGE\",\n          \"discount_value\": 20,\n          \"discount_amount\": 300.0\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1500.0,\n        \"vat_amount\": 180.0,\n        \"vat_exempt_sales\": 1200.0,\n        \"zero_rated_sales\": 0\n      }\n    },\n    {\n      \"ticket_id\": \"POS01-000125\",\n      \"ticket_number\": \"SI-00004570\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004570\"\n      },\n      \"status\": \"VOIDED\",\n      \"opened_at\": \"2026-11-17T21:00:00+08:00\",\n      \"closed_at\": \"2026-11-17T21:12:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 1,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"02\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": 420.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 420.0,\n        \"net_amount_excl_tax\": 375.0,\n        \"tax_amount\": 45.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 0\n      },\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-310\",\n          \"product_name\": \"Malbec copa\",\n          \"product_category\": \"WINE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 420.0,\n          \"gross_amount\": 420.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 420.0,\n          \"net_amount_excl_tax\": 375.0,\n          \"tax_amount\": 45.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": true,\n          \"void_reason\": \"Customer left before service\"\n        }\n      ]\n    },\n    {\n      \"ticket_id\": \"POS01-000131\",\n      \"ticket_number\": \"SI-00004575\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004575\"\n      },\n      \"status\": \"REFUNDED\",\n      \"opened_at\": \"2026-11-18T00:50:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:52:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 0,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -2240.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": -2240.0,\n        \"net_amount_excl_tax\": -2000.0,\n        \"tax_amount\": -240.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": -2240.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": -2240.0,\n          \"reference\": \"REFUND-PLACEHOLDER-1\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": -1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": -2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": -2240.0,\n          \"net_amount_excl_tax\": -2000.0,\n          \"tax_amount\": -240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"original_ticket_id\": \"POS01-000124\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": "Re-sends the last accepted batch_id."
+          }
+        },
+        {
+          "name": "2.5 Negative amount without REFUNDED -> 400",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "const r = pm.response.json();",
+                  "pm.test('error NEGATIVE_AMOUNT_NOT_REFUNDED', () => pm.expect(r.errors[0].code).to.eql('NEGATIVE_AMOUNT_NOT_REFUNDED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"INCREMENTAL\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 2,\n      \"gross_sales_amount\": 1920.0,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": 1920.0,\n      \"tax_amount\": 205.71,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 2,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000123\",\n      \"ticket_number\": \"SI-00004567\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004567\"\n      },\n      \"status\": \"CLOSED\",\n      \"opened_at\": \"2026-11-17T19:05:00+08:00\",\n      \"closed_at\": \"2026-11-17T20:40:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 2,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"12\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -1920,\n        \"discount_amount\": 0.0,\n        \"net_amount\": 1920.0,\n        \"net_amount_excl_tax\": 1714.29,\n        \"tax_amount\": 205.71,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": 1920.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CASH\",\n          \"amount\": 1920.0,\n          \"reference\": null\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"CAR-101\",\n          \"product_name\": \"Bife de Chorizo 400g\",\n          \"product_category\": \"MAIN_COURSE\",\n          \"quantity\": 1.0,\n          \"unit_price\": 1680.0,\n          \"gross_amount\": 1680.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 1680.0,\n          \"net_amount_excl_tax\": 1500.0,\n          \"tax_amount\": 180.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        },\n        {\n          \"line_id\": \"2\",\n          \"product_code\": \"BEB-010\",\n          \"product_name\": \"Coca-Cola 330ml\",\n          \"product_category\": \"BEVERAGE\",\n          \"quantity\": 2.0,\n          \"unit_price\": 120.0,\n          \"gross_amount\": 240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": 240.0,\n          \"net_amount_excl_tax\": 214.29,\n          \"tax_amount\": 25.71,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ],\n      \"tax_breakdown\": {\n        \"vatable_sales\": 1714.29,\n        \"vat_amount\": 205.71,\n        \"vat_exempt_sales\": 0,\n        \"zero_rated_sales\": 0\n      }\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": ""
+          }
+        },
+        {
+          "name": "2.6 REFUNDED without original_ticket_id -> 400",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// batch_id nuevo en cada envío (un batch_id repetido devuelve 409)",
+                  "const fecha = pm.collectionVariables.get('business_date').replace(/-/g, '');",
+                  "const branch = pm.collectionVariables.get('franchise_code');",
+                  "pm.collectionVariables.set('batch_id', `LC-${branch}-${fecha}-${Date.now()}`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "const r = pm.response.json();",
+                  "pm.test('error INVALID_REFUND', () => pm.expect(r.errors[0].code).to.eql('INVALID_REFUND'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schema_version\": \"1.3\",\n  \"batch_header\": {\n    \"batch_id\": \"{{batch_id}}\",\n    \"business_date\": \"2026-11-17\",\n    \"generated_at\": \"2026-11-18T02:15:00+08:00\",\n    \"source_system\": {\n      \"system_name\": \"Aquarius POS\",\n      \"system_version\": \"<version>\"\n    },\n    \"franchise\": {\n      \"franchise_code\": \"MANILA_SHANGRILA\",\n      \"country\": \"Philippines\",\n      \"city\": \"Manila\",\n      \"timezone\": \"Asia/Manila\",\n      \"currency\": \"PHP\"\n    },\n    \"upload_type\": \"INCREMENTAL\",\n    \"amounts_include_tax\": true,\n    \"control_totals\": {\n      \"ticket_count\": 1,\n      \"item_line_count\": 1,\n      \"gross_sales_amount\": -2240.0,\n      \"discount_amount\": 0.0,\n      \"net_sales_amount\": -2240.0,\n      \"tax_amount\": -240.0,\n      \"service_charge_amount\": 0.0,\n      \"tip_amount\": 0.0,\n      \"covers_total\": 0,\n      \"cancelled_ticket_count\": 0\n    }\n  },\n  \"tickets\": [\n    {\n      \"ticket_id\": \"POS01-000131\",\n      \"ticket_number\": \"SI-00004575\",\n      \"fiscal_document\": {\n        \"document_type\": \"SALES_INVOICE\",\n        \"document_number\": \"00004575\"\n      },\n      \"status\": \"REFUNDED\",\n      \"opened_at\": \"2026-11-18T00:50:00+08:00\",\n      \"closed_at\": \"2026-11-18T00:52:00+08:00\",\n      \"business_date\": \"2026-11-17\",\n      \"covers\": 0,\n      \"currency\": \"PHP\",\n      \"table\": {\n        \"table_number\": \"05\",\n        \"table_area\": \"MAIN\"\n      },\n      \"waiter\": {\n        \"waiter_id\": \"W07\",\n        \"waiter_name\": \"Maria Santos\"\n      },\n      \"amounts\": {\n        \"gross_amount\": -2240.0,\n        \"discount_amount\": 0.0,\n        \"net_amount\": -2240.0,\n        \"net_amount_excl_tax\": -2000.0,\n        \"tax_amount\": -240.0,\n        \"service_charge_amount\": 0,\n        \"tip_amount\": 0,\n        \"total_paid_amount\": -2240.0\n      },\n      \"payment_methods\": [\n        {\n          \"payment_method\": \"CREDIT_CARD\",\n          \"payment_brand\": \"VISA\",\n          \"amount\": -2240.0,\n          \"reference\": \"REFUND-PLACEHOLDER-1\"\n        }\n      ],\n      \"items\": [\n        {\n          \"line_id\": \"1\",\n          \"product_code\": \"VIN-301\",\n          \"product_name\": \"Malbec Reserva 750ml\",\n          \"product_category\": \"WINE\",\n          \"quantity\": -1.0,\n          \"unit_price\": 2240.0,\n          \"gross_amount\": -2240.0,\n          \"discount_amount\": 0.0,\n          \"net_amount\": -2240.0,\n          \"net_amount_excl_tax\": -2000.0,\n          \"tax_amount\": -240.0,\n          \"tax_rate\": 0.12,\n          \"is_discounted\": false,\n          \"is_voided\": false\n        }\n      ]\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch"
+              ]
+            },
+            "description": ""
+          }
+        }
+      ]
+    },
+    {
+      "name": "3 Status",
+      "item": [
+        {
+          "name": "3.1 Status of the last batch",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('has status', () => pm.expect(pm.response.json().status).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/sales/daily-batch/{{last_batch_id}}/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "sales",
+                "daily-batch",
+                "{{last_batch_id}}",
+                "status"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
