@@ -63,6 +63,7 @@ builder.Services.AddScoped<IAgoraExtractorService, AgoraExtractorService>();
 builder.Services.AddScoped<IVinsonExtractorService, VinsonExtractorService>();
 builder.Services.AddScoped<IAyresItExtractorService, AyresItExtractorService>();
 builder.Services.AddScoped<IGcomExtractorService, GcomExtractorService>();
+builder.Services.AddScoped<INeoExtractorService, NeoExtractorService>();
 builder.Services.AddScoped<IGoogleDriveClient, GoogleDriveClient>();
 builder.Services.AddScoped<IDriveJsonConectorService, DriveJsonConectorService>();
 builder.Services.Configure<MicrosMailSettings>(builder.Configuration.GetSection("MicrosMail"));

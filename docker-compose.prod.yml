@@ -48,6 +48,8 @@ services:
       - GoogleDrive__CredencialesPath=/app/secrets/gdrive-sa.json
       # Contraseña de la casilla de Chile (sync_cabrera_chile@pillow.com.ar). Vive en el servidor, fuera del repo
       - MicrosMail__PasswordPath=/app/secrets/imap-chile.txt
+      # API key de NEO (POS de Málaga, T-381). Vive en el .env del servidor, fuera del repo; vacía = conector sin key
+      - NEO_MALAGA_API_KEY=${NEO_MALAGA_API_KEY:-}
     networks:
       - lacabrera-network
     healthcheck:
