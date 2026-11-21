@@ -468,10 +468,12 @@ public class NeoExtractorService : INeoExtractorService
             var codigo = mapeoPagos.GetValueOrDefault(p.Medio, "OTHER");
             if (!mapeoPagos.ContainsKey(p.Medio))
                 await RegistrarValorNoMapeadoAsync(connection, tx, nodoConexionId, "MEDIO_PAGO", p.Medio);
+            // Sin columna Referencia: llega con la migración de T-380, que todavía no está en producción. El código NEO
+            // original (TCR, CG, FORK…) queda en el crudo de la jornada y en dim.ValorNoMapeado; se remapea reprocesando.
             await connection.ExecuteAsync(@"
-                INSERT INTO fact.VentaTicketMedioPago (VentaTicketId, IngestionBatchId, FranquiciaId, CodigoMedioPago, Importe, Referencia)
-                VALUES (@TicketId, @BatchId, @FranquiciaId, @CodigoMedioPago, @Importe, @Referencia)",
-                new { TicketId = ticketId, BatchId = batchId, FranquiciaId = franquiciaId, CodigoMedioPago = codigo, p.Importe, Referencia = p.Medio }, tx);
+                INSERT INTO fact.VentaTicketMedioPago (VentaTicketId, IngestionBatchId, FranquiciaId, CodigoMedioPago, Importe)
+                VALUES (@TicketId, @BatchId, @FranquiciaId, @CodigoMedioPago, @Importe)",
+                new { TicketId = ticketId, BatchId = batchId, FranquiciaId = franquiciaId, CodigoMedioPago = codigo, p.Importe }, tx);
         }
 
         tx.Commit();
