@@ -35,6 +35,10 @@ public class ConsumoFranquiciaCruda
     public string? Pais { get; set; }
     public string? Ciudad { get; set; }
     public string Moneda { get; set; } = "";
+    public string? PaisIso { get; set; }
+    public string? ZonaMapa { get; set; }
+    public decimal? Latitud { get; set; }
+    public decimal? Longitud { get; set; }
 }
 
 public record ConsumoDatosCrudos(
@@ -43,7 +47,8 @@ public record ConsumoDatosCrudos(
 // ---- Respuesta (compacta: arrays con índices para que el rango de 2-3 meses viaje liviano) ----
 
 public record ConsumoFranquiciaDto(
-    int Id, string Codigo, string Nombre, string? Pais, string? Ciudad, string Moneda, bool SinNombres, string? Motivo);
+    int Id, string Codigo, string Nombre, string? Pais, string? Ciudad, string Moneda, bool SinNombres, string? Motivo,
+    string? PaisIso = null, string? ZonaMapa = null, decimal? Latitud = null, decimal? Longitud = null);
 
 public record ConsumoProductoDto(string Rubro, string Producto);
 
@@ -216,7 +221,8 @@ public static class ConsumoProductosAgregador
 
         var frDto = franquicias.Select(f => new ConsumoFranquiciaDto(
             f.FranquiciaId, f.Codigo, f.Nombre, f.Pais, f.Ciudad, f.Moneda, sinNombres.Contains(f.FranquiciaId),
-            sinNombres.Contains(f.FranquiciaId) ? "El POS informa códigos en lugar de nombres de producto: su venta queda en Sin clasificar" : null)).ToList();
+            sinNombres.Contains(f.FranquiciaId) ? "El POS informa códigos en lugar de nombres de producto: su venta queda en Sin clasificar" : null,
+            f.PaisIso, f.ZonaMapa, f.Latitud, f.Longitud)).ToList();
 
         decimal Suma(Func<string, bool> rubro) => filasDto.Where(r => rubro(productos[(int)r[2]].Rubro)).Sum(r => r[6]);
         var usdSinClasificar = Suma(r => r == ClasificadorProductos.RubroSinClasificar);

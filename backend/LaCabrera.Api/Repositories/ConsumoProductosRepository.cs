@@ -65,7 +65,8 @@ public class ConsumoProductosRepository : IConsumoProductosRepository
             GROUP BY t.FranquiciaId, t.FechaNegocio";
 
         const string sqlFranquicias = @"
-            SELECT f.FranquiciaId, f.Codigo, f.Nombre, f.Pais, f.Ciudad, m.CodigoISO AS Moneda
+            SELECT f.FranquiciaId, f.Codigo, f.Nombre, f.Pais, f.Ciudad, m.CodigoISO AS Moneda,
+                   f.PaisIso, f.ZonaMapa, f.Latitud, f.Longitud
             FROM dim.Franquicia f
             JOIN dim.Moneda m ON m.MonedaId = f.MonedaId
             WHERE EXISTS (SELECT 1 FROM fact.VentaTicket t WHERE t.FranquiciaId = f.FranquiciaId

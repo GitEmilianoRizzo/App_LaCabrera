@@ -1,6 +1,7 @@
 using System.Text.Json;
 using LaCabrera.Api.Models.DTOs;
 using LaCabrera.Api.Repositories;
+using LaCabrera.Api.Services.Consumo;
 
 namespace LaCabrera.Api.Services;
 
@@ -123,6 +124,10 @@ public class ConexionService : IConexionService
         {
             throw new ArgumentException($"Estado '{estado}' no valido. Estados validos: {string.Join(", ", estadosValidos)}");
         }
+
+        // Regla del sistema: toda franquicia que entra tiene que poder ubicarse en el Mapa de Consumo
+        if (estado == "ACTIVE" && await _conexionRepository.GetUbicacionFranquiciaDeNodoAsync(nodoConexionId) is { TieneUbicacion: false } f)
+            throw new ArgumentException(ReglaMapaConsumo.MensajeSinUbicacion(f.Codigo));
 
         await _conexionRepository.UpdateNodoEstadoAsync(nodoConexionId, estado);
     }

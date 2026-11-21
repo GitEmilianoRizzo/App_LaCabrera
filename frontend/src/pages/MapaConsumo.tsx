@@ -8,6 +8,7 @@ import { MapaMundo, type DatoPais, type DatoZona } from '@/components/consumo/Ma
 import { MatrizConsumo } from '@/components/consumo/MatrizConsumo'
 import { InformeConsumo } from '@/components/consumo/InformeConsumo'
 import { CuadreAlertas } from '@/components/consumo/CuadreAlertas'
+import { ControlRegla } from '@/components/consumo/ControlRegla'
 import { consumoApi } from '@/services/api'
 import type { ConsumoProductosResponse } from '@/types/consumo'
 import {
@@ -347,6 +348,17 @@ export function MapaConsumo() {
         </CardHeader>
         <CardContent>
           {informe && <InformeConsumo informe={informe} avisos={avisos} periodo={periodo} />}
+        </CardContent>
+      </Card>
+
+      {/* Regla del sistema */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-lg">Regla del mapa: control de franquicias</CardTitle>
+          <p className="text-sm text-muted-foreground">Toda franquicia que entra al sistema tiene que acomodarse al mapa y a la clasificación de productos. Se controla todos los días.</p>
+        </CardHeader>
+        <CardContent>
+          <ControlRegla />
         </CardContent>
       </Card>
     </div>
