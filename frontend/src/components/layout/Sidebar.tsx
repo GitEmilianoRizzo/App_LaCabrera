@@ -12,6 +12,7 @@ import {
   Shield,
   X,
   AlertTriangle,
+  Globe2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,6 +21,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Por Franquicia', href: '/ventas/franquicia', icon: Store },
   // { name: 'Por Producto', href: '/ventas/producto', icon: ShoppingBag }, // Oculto temporalmente
+  { name: 'Mapa de Consumo', href: '/ventas/mapa-consumo', icon: Globe2 },
   { name: 'Alertas', href: '/alertas', icon: AlertTriangle },
   { name: 'Conexiones', href: '/conexiones', icon: Cable },
   { name: 'Integracion', href: '/integracion/estado', icon: Plug },

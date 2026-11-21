@@ -52,6 +52,7 @@ builder.Services.AddScoped<IPreferenciasRepository, PreferenciasRepository>();
 builder.Services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IInformeEjecutivoRepository, InformeEjecutivoRepository>();
+builder.Services.AddScoped<IConsumoProductosRepository, ConsumoProductosRepository>();
 
 // Services
 builder.Services.AddScoped<IIngestionService, IngestionService>();
@@ -68,6 +69,7 @@ builder.Services.Configure<MicrosMailSettings>(builder.Configuration.GetSection(
 builder.Services.AddScoped<IMicrosMailConectorService, MicrosMailConectorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInformeEjecutivoService, InformeEjecutivoService>();
+builder.Services.AddScoped<LaCabrera.Api.Services.Consumo.IConsumoProductosService, LaCabrera.Api.Services.Consumo.ConsumoProductosService>();
 builder.Services.AddSingleton<IPdfRenderer, ChromiumPdfRenderer>();
 builder.Services.AddHttpClient<ITxtParserService, TxtParserService>(client =>
 {

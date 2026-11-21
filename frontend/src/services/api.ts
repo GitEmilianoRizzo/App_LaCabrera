@@ -737,3 +737,11 @@ export const authApi = {
     return response.data
   },
 }
+
+// Mapa de consumo: productos canónicos por día, franquicia y producto
+export const consumoApi = {
+  async getConsumoProductos(params: { fechaDesde?: string; fechaHasta?: string; franquiciaId?: number }): Promise<import('@/types/consumo').ConsumoProductosResponse> {
+    const response = await apiClient.get('/dashboard/consumo-productos', { params, timeout: 180000 })
+    return response.data
+  },
+}
