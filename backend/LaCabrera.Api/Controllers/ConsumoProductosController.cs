@@ -15,8 +15,13 @@ public class ConsumoProductosController : ControllerBase
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 
     private readonly IConsumoProductosService _service;
+    private readonly IControlMapaConsumoService _control;
 
-    public ConsumoProductosController(IConsumoProductosService service) => _service = service;
+    public ConsumoProductosController(IConsumoProductosService service, IControlMapaConsumoService control)
+    {
+        _service = service;
+        _control = control;
+    }
 
     [HttpGet]
     [SwaggerOperation(Summary = "Consumo por producto canónico",
@@ -24,6 +29,15 @@ public class ConsumoProductosController : ControllerBase
     public async Task<IActionResult> Get([FromQuery] DateTime? fechaDesde, [FromQuery] DateTime? fechaHasta, [FromQuery] int? franquiciaId)
     {
         var data = await _service.GetAsync(fechaDesde, fechaHasta, franquiciaId);
+        return new JsonResult(data, Json);
+    }
+
+    [HttpGet("control")]
+    [SwaggerOperation(Summary = "Control de la regla del Mapa de Consumo",
+        Description = "Por franquicia: ubicación en el mapa, cotización, % de venta clasificada (con los nombres a clasificar), no producto, días sin detalle y cubiertos. Ventana: los últimos N días con ventas de cada franquicia.")]
+    public async Task<IActionResult> GetControl([FromQuery] int dias = 30)
+    {
+        var data = await _control.ControlarAsync(dias);
         return new JsonResult(data, Json);
     }
 }

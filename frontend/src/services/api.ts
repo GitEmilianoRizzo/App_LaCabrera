@@ -744,4 +744,8 @@ export const consumoApi = {
     const response = await apiClient.get('/dashboard/consumo-productos', { params, timeout: 180000 })
     return response.data
   },
+  async getControlMapa(dias = 30): Promise<import('@/types/consumo').ControlMapaConsumo> {
+    const response = await apiClient.get('/dashboard/consumo-productos/control', { params: { dias }, timeout: 180000 })
+    return response.data
+  },
 }

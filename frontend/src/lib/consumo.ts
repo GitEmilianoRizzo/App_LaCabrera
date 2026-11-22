@@ -48,6 +48,18 @@ export interface Zona {
   coord: [number, number] | null
 }
 
+/**
+ * Zona de una franquicia. Primero la ubicación cargada en la base (dim.Franquicia: PaisIso, ZonaMapa, Latitud, Longitud),
+ * que es la regla del sistema para toda franquicia nueva; si falta, las tablas de abajo por nombre de país y ciudad.
+ */
+export function zonaDeFranquicia(f: { pais: string | null; ciudad: string | null; pais_iso?: string | null; zona_mapa?: string | null; latitud?: number | null; longitud?: number | null }): Zona {
+  if (f.pais_iso && f.zona_mapa && f.latitud != null && f.longitud != null) {
+    const p = Object.values(PAISES).find(x => x.iso === f.pais_iso) ?? { nombre: f.pais?.trim() || 'Sin país', iso: f.pais_iso }
+    return { key: `${p.nombre} · ${f.zona_mapa}`, ciudad: f.zona_mapa, pais: p, coord: [Number(f.longitud), Number(f.latitud)] }
+  }
+  return zonaDe(f.pais, f.ciudad)
+}
+
 export function zonaDe(pais: string | null, ciudad: string | null): Zona {
   const p = PAISES[sinAcentos(pais ?? '')] ?? { nombre: pais?.trim() || 'Sin país', iso: '' }
   const c = CIUDADES[sinAcentos(ciudad ?? '')]
@@ -167,7 +179,7 @@ export function crearModelo(data: ConsumoProductosResponse): Modelo {
   const zonas: Zona[] = []
   const idx = new Map<string, number>()
   const zonaDeFr = data.franquicias.map(f => {
-    const z = zonaDe(f.pais, f.ciudad)
+    const z = zonaDeFranquicia(f)
     if (!idx.has(z.key)) { idx.set(z.key, zonas.length); zonas.push(z) }
     return idx.get(z.key)!
   })
