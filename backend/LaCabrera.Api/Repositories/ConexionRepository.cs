@@ -10,6 +10,8 @@ public interface IConexionRepository
     Task<NodoConexionDto?> GetNodoByIdAsync(int nodoConexionId);
     Task<NodoConexionDto?> GetNodoByCodigoAsync(string codigo);
     Task<string?> GetConfiguracionJsonAsync(int nodoConexionId);
+    /// <summary>Franquicia del nodo y si tiene la ubicación que exige el Mapa de Consumo (regla del sistema).</summary>
+    Task<(string Codigo, bool TieneUbicacion)?> GetUbicacionFranquiciaDeNodoAsync(int nodoConexionId);
     Task UpdateConfiguracionJsonAsync(int nodoConexionId, string configuracionJson);
     Task<IEnumerable<MapeoCategoriaDto>> GetMapeosCategoriaAsync(int nodoConexionId);
     Task<IEnumerable<MapeoMedioPagoDto>> GetMapeosMedioPagoAsync(int nodoConexionId);
@@ -277,6 +279,19 @@ public class ConexionRepository : IConexionRepository
                 nodo.PoliticaDevoluciones,
                 nodo.ToleranciaReconciliacion
             });
+    }
+
+    public async Task<(string Codigo, bool TieneUbicacion)?> GetUbicacionFranquiciaDeNodoAsync(int nodoConexionId)
+    {
+        using var connection = _connectionFactory.CreateConnection();
+        var fila = await connection.QueryFirstOrDefaultAsync<(string Codigo, int TieneUbicacion)?>(@"
+            SELECT f.Codigo,
+                   CASE WHEN f.PaisIso IS NOT NULL AND f.ZonaMapa IS NOT NULL AND f.Latitud IS NOT NULL AND f.Longitud IS NOT NULL
+                        THEN 1 ELSE 0 END AS TieneUbicacion
+            FROM dim.NodoConexion n JOIN dim.Franquicia f ON f.FranquiciaId = n.FranquiciaId
+            WHERE n.NodoConexionId = @NodoConexionId",
+            new { NodoConexionId = nodoConexionId });
+        return fila is { } x ? (x.Codigo, x.TieneUbicacion == 1) : null;
     }
 
     public async Task UpdateNodoEstadoAsync(int nodoConexionId, string estado)

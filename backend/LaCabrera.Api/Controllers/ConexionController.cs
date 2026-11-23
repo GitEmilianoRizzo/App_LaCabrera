@@ -15,6 +15,7 @@ public class ConexionController : ControllerBase
     private readonly IVinsonExtractorService _vinsonExtractor;
     private readonly IAyresItExtractorService _ayresItExtractor;
     private readonly IGcomExtractorService _gcomExtractor;
+    private readonly INeoExtractorService _neoExtractor;
     private readonly IDriveJsonConectorService _driveConector;
     private readonly IMicrosMailConectorService _microsMail;
     private readonly ITxtParserService _txtParserService;
@@ -26,6 +27,7 @@ public class ConexionController : ControllerBase
         IVinsonExtractorService vinsonExtractor,
         IAyresItExtractorService ayresItExtractor,
         IGcomExtractorService gcomExtractor,
+        INeoExtractorService neoExtractor,
         IDriveJsonConectorService driveConector,
         IMicrosMailConectorService microsMail,
         ITxtParserService txtParserService,
@@ -36,6 +38,7 @@ public class ConexionController : ControllerBase
         _vinsonExtractor = vinsonExtractor;
         _ayresItExtractor = ayresItExtractor;
         _gcomExtractor = gcomExtractor;
+        _neoExtractor = neoExtractor;
         _driveConector = driveConector;
         _microsMail = microsMail;
         _txtParserService = txtParserService;
@@ -260,9 +263,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _gcomExtractor.EjecutarExtraccionAsync(id, fechaNegocio);
         }
+        else if (tipoConector == "NEO")
+        {
+            resultado = await _neoExtractor.EjecutarExtraccionAsync(id, fechaNegocio);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM, NEO" });
         }
 
         if (resultado.Success)
@@ -322,9 +329,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _gcomExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta);
         }
+        else if (tipoConector == "NEO")
+        {
+            resultado = await _neoExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM, NEO" });
         }
 
         if (resultado.Success)
@@ -356,9 +367,9 @@ public class ConexionController : ControllerBase
         }
 
         var tipoConector = nodo.TipoConector.ToUpperInvariant();
-        if (!tipoConector.StartsWith("VINSON") && tipoConector != "GCOM")
+        if (!tipoConector.StartsWith("VINSON") && tipoConector != "GCOM" && tipoConector != "NEO")
         {
-            return BadRequest(new { message = $"El reproceso solo está disponible para nodos VINSON y GCOM (nodo: {nodo.TipoConector})" });
+            return BadRequest(new { message = $"El reproceso solo está disponible para nodos VINSON, GCOM y NEO (nodo: {nodo.TipoConector})" });
         }
 
         if (fechaDesde > fechaHasta)
@@ -369,6 +380,8 @@ public class ConexionController : ControllerBase
         // GCOM reprocesa desde el crudo guardado: no consume cupo de la API
         var resultado = tipoConector == "GCOM"
             ? await _gcomExtractor.ReprocesarDesdeCrudoAsync(id, fechaDesde, fechaHasta)
+            : tipoConector == "NEO"
+            ? await _neoExtractor.ReprocesarDesdeCrudoAsync(id, fechaDesde, fechaHasta)
             : await _vinsonExtractor.EjecutarExtraccionRangoAsync(id, fechaDesde, fechaHasta, reprocesar: true);
 
         if (resultado.Success)
@@ -420,9 +433,13 @@ public class ConexionController : ControllerBase
         {
             resultado = await _gcomExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
         }
+        else if (tipoConector == "NEO")
+        {
+            resultado = await _neoExtractor.EjecutarExtraccionDesdeUltimoAsync(id);
+        }
         else
         {
-            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado para este modo. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM" });
+            return BadRequest(new { message = $"Tipo de conector '{nodo.TipoConector}' no soportado para este modo. Tipos validos: AGORA*, VINSON*, AYRESIT, GCOM, NEO" });
         }
 
         if (resultado.Success)

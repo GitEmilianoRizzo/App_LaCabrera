@@ -52,6 +52,7 @@ builder.Services.AddScoped<IPreferenciasRepository, PreferenciasRepository>();
 builder.Services.AddScoped<IExchangeRateRepository, ExchangeRateRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IInformeEjecutivoRepository, InformeEjecutivoRepository>();
+builder.Services.AddScoped<IConsumoProductosRepository, ConsumoProductosRepository>();
 
 // Services
 builder.Services.AddScoped<IIngestionService, IngestionService>();
@@ -62,12 +63,15 @@ builder.Services.AddScoped<IAgoraExtractorService, AgoraExtractorService>();
 builder.Services.AddScoped<IVinsonExtractorService, VinsonExtractorService>();
 builder.Services.AddScoped<IAyresItExtractorService, AyresItExtractorService>();
 builder.Services.AddScoped<IGcomExtractorService, GcomExtractorService>();
+builder.Services.AddScoped<INeoExtractorService, NeoExtractorService>();
 builder.Services.AddScoped<IGoogleDriveClient, GoogleDriveClient>();
 builder.Services.AddScoped<IDriveJsonConectorService, DriveJsonConectorService>();
 builder.Services.Configure<MicrosMailSettings>(builder.Configuration.GetSection("MicrosMail"));
 builder.Services.AddScoped<IMicrosMailConectorService, MicrosMailConectorService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IInformeEjecutivoService, InformeEjecutivoService>();
+builder.Services.AddScoped<LaCabrera.Api.Services.Consumo.IConsumoProductosService, LaCabrera.Api.Services.Consumo.ConsumoProductosService>();
+builder.Services.AddScoped<LaCabrera.Api.Services.Consumo.IControlMapaConsumoService, LaCabrera.Api.Services.Consumo.ControlMapaConsumoService>();
 builder.Services.AddSingleton<IPdfRenderer, ChromiumPdfRenderer>();
 builder.Services.AddHttpClient<ITxtParserService, TxtParserService>(client =>
 {
@@ -88,6 +92,8 @@ builder.Services.AddHostedService<ExchangeRateRefreshJob>();
 
 // Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT y GCOM)
 builder.Services.AddHostedService<ConectoresSyncJob>();
+// Regla del Mapa de Consumo: control diario de que toda franquicia se acomode al mapa y a la clasificación de productos
+builder.Services.AddHostedService<LaCabrera.Api.Services.Consumo.ControlMapaConsumoJob>();
 
 // HttpClient para llamadas a APIs externas (Ágora, Vinson, etc)
 builder.Services.AddHttpClient();

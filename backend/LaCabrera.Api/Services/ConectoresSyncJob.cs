@@ -4,11 +4,12 @@ using LaCabrera.Api.Configuration;
 namespace LaCabrera.Api.Services;
 
 /// <summary>
-/// Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT y GCOM) de las carpetas de Drive (Colombia) y de la casilla de mail de Chile (MICROS).
+/// Sincronización diaria de los conectores por API (Ágora, Vinson, Ayres IT, GCOM y NEO) de las carpetas de Drive (Colombia) y de la casilla de mail de Chile (MICROS).
 /// Una vez por día, a la hora local configurada, ejecuta "desde el último día con datos"
 /// en cada nodo PULL activo, uno por vez:
 /// - Ágora, Vinson y Ayres IT: piden desde el primer hueco de los últimos 60 días hasta ayer.
 /// - GCOM: solo los nodos con sync.auto = true; pide ayer y la carga histórica hasta agotar el cupo de la tienda.
+/// - NEO (Málaga): solo con sync.auto = true; relee las últimas 7 jornadas y las que falten desde sync.fecha_inicio.
 ///
 /// Configuración en appsettings.json (deshabilitado por defecto):
 /// {
@@ -95,7 +96,7 @@ public class ConectoresSyncJob : BackgroundService
             SELECT NodoConexionId, Codigo, TipoConector FROM dim.NodoConexion
             WHERE Modo = 'PULL' AND Estado = 'ACTIVE' AND Activo = 1
               AND (TipoConector LIKE 'AGORA%' OR TipoConector LIKE 'VINSON%' OR TipoConector = 'AYRESIT'
-                   OR (TipoConector = 'GCOM' AND JSON_VALUE(ConfiguracionJson, '$.sync.auto') = 'true'))
+                   OR (TipoConector IN ('GCOM', 'NEO') AND JSON_VALUE(ConfiguracionJson, '$.sync.auto') = 'true'))
             ORDER BY NodoConexionId")).ToList();
 
         // Conectores que leen JSON de una carpeta de Google Drive (Colombia)
@@ -120,6 +121,7 @@ public class ConectoresSyncJob : BackgroundService
                         .EjecutarExtraccionRangoAsync(nodo.Id, _recargaAyresDesde.Value.Date, DateTime.Today.AddDays(-1)),
                     "AYRESIT" => await sp.GetRequiredService<IAyresItExtractorService>().EjecutarExtraccionDesdeUltimoAsync(nodo.Id),
                     "GCOM" => await sp.GetRequiredService<IGcomExtractorService>().EjecutarExtraccionDesdeUltimoAsync(nodo.Id, "SCHEDULED"),
+                    "NEO" => await sp.GetRequiredService<INeoExtractorService>().EjecutarExtraccionDesdeUltimoAsync(nodo.Id, "SCHEDULED"),
                     _ => new EjecucionResultDto { Success = false, Message = $"Tipo {nodo.TipoConector} sin sincronización automática" }
                 };
 
