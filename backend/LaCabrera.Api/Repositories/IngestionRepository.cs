@@ -269,7 +269,7 @@ public class IngestionRepository : IIngestionRepository
         parameters.Add("TurnoCierre", string.IsNullOrEmpty(ticket.Shift?.ClosedAt) ? null : (DateTime?)DateTimeOffset.Parse(ticket.Shift.ClosedAt).UtcDateTime);
         parameters.Add("MealPeriodOrigen", mealPeriodOrigen);
 
-        // v1.3: solo se mandan si vienen (los SP de antes de la 035 no los conocen)
+        // v1.3: solo se mandan si vienen (los SP de antes de la 037 no los conocen)
         if (estaAnuladoForzado.HasValue) parameters.Add("EstaAnuladoForzado", estaAnuladoForzado.Value);
         if (!string.IsNullOrEmpty(ticket.OriginalTicketId)) parameters.Add("ExternalTicketIdOriginal", ticket.OriginalTicketId);
         if (ticket.TaxBreakdown != null)
@@ -367,7 +367,7 @@ public class IngestionRepository : IIngestionRepository
         using var lease = Arrendar();
         var connection = lease.Connection;
 
-        // v1.3: la columna Referencia existe desde la 035; sin referencia el INSERT queda como antes
+        // v1.3: la columna Referencia existe desde la 037; sin referencia el INSERT queda como antes
         var conReferencia = !string.IsNullOrEmpty(payment.Reference);
 
         await connection.ExecuteAsync(@"

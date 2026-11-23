@@ -1,5 +1,5 @@
 -- =====================================================
--- Reversión de la 035 (T-380). Re-ejecutable.
+-- Reversión de la 037 (T-380). Re-ejecutable.
 -- 1) Vuelve el SP de tickets a la versión de la 027 y quita el SP de reemplazo.
 -- 2) Quita las columnas nuevas SOLO si están vacías, y la tabla de respaldo SOLO si no tiene filas:
 --    si hay datos v1.3 cargados, quedan (no se borra nada).

@@ -1,12 +1,14 @@
 -- =====================================================
--- 035 · daily-batch v1.3 (T-380, Manila / Aquarius POS)
+-- 037 · daily-batch v1.3 (T-380, Manila / Aquarius POS)
 --
 -- Solo agrega: columnas nullable, una tabla de respaldo y parámetros opcionales.
 -- Los llamadores existentes (v1.0-v1.2: Toast, Drive, MICROS, Lima) no cambian:
 -- los parámetros nuevos tienen default y el SP calcula EstaAnulado como antes
 -- salvo que se le pase @EstaAnuladoForzado (solo lo hace la ingesta v1.3).
 --
--- Re-ejecutable. Reversión: 035_daily_batch_v13_manila_rollback.sql
+-- Re-ejecutable. Reversión: 037_daily_batch_v13_manila_rollback.sql
+-- Numeración: se llamó 035 hasta el 23/11/2026 (chocaba con 035_alta_neo_malaga y 036 ya era el control del
+-- mapa). En la base de desarrollo ya estaba aplicada con el nombre viejo; no hay tabla de migraciones aplicadas.
 -- =====================================================
 
 -- 1. Esquema de respaldos
